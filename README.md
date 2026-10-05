@@ -18,14 +18,14 @@ Tkinter Client ── TCP / JSON ── Python Server ── PyMySQL (선택) �
 
 ## 실행
 
-PowerShell 창 두 개를 열어 아래 순서로 실행합니다.
+Python 3.9 이상을 PATH에 추가한 뒤 PowerShell 창 두 개를 열어 아래 순서로 실행합니다.
 
 ```powershell
 # 1. 서버
-& 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m app.server
+python -m app.server
 
 # 2. 브라우저 클라이언트
-& 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m app.web_client
+python -m app.web_client
 ```
 
 브라우저에서 `http://127.0.0.1:8080`을 연 뒤 진단 방식을 선택하고 **DBMS 진단 시작**을 누릅니다. 진단 요청마다 웹 클라이언트가 TCP 세션을 생성해 진단 서버에 요청하고, 결과를 화면에 표시합니다.
@@ -36,7 +36,7 @@ PowerShell 창 두 개를 열어 아래 순서로 실행합니다.
 
 ## 실제 MariaDB 연동
 
-과제 전용 MariaDB 11.8.9는 `C:\Users\phili\AppData\Local\DBMSCourseMariaDB-3307`에 설치하도록 구성했습니다. 기존 과제 DB 프로세스가 3306 포트를 사용하고 파일은 사용자 계정에서 보이지 않아, 새 설치를 3307 포트와 별도 폴더로 분리했습니다. Windows 서비스로 등록하지 않고 `127.0.0.1:3307`에서만 실행합니다. 데이터베이스는 `course_network_demo`, 프로그램 계정은 읽기 전용 `course_monitor`입니다. 암호는 저장소 밖의 `secrets` 폴더에 보관하며 공개하거나 제출하지 마세요.
+과제 전용 MariaDB 11.8.9는 `%LOCALAPPDATA%\DBMSCourseMariaDB-3307`에 설치하도록 구성했습니다. 기존 과제 DB 프로세스가 3306 포트를 사용하고 파일은 사용자 계정에서 보이지 않아, 새 설치를 3307 포트와 별도 폴더로 분리했습니다. Windows 서비스로 등록하지 않고 `127.0.0.1:3307`에서만 실행합니다. 데이터베이스는 `course_network_demo`, 프로그램 계정은 읽기 전용 `course_monitor`입니다. 암호는 저장소 밖의 `secrets` 폴더에 보관하며 공개하거나 제출하지 마세요.
 
 처음 설치할 때는 **본인 계정의 PowerShell**에서 과제 폴더로 이동해 다음을 실행합니다. MariaDB 공식 Windows ZIP과 PyMySQL을 내려받고 과제 전용 DB를 초기화합니다. 기존 3306 DBMS나 동아리 프로젝트는 변경하지 않습니다. 다운로드한 ZIP의 SHA-256을 확인하며, 3307 포트 또는 같은 이름의 설치 폴더가 이미 있으면 설치하지 않고 중단합니다.
 
@@ -65,7 +65,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\scripts\install_local
 다른 실제 DBMS를 사용하려면 `PyMySQL`을 설치하고 아래 환경 변수를 설정한 뒤 서버를 실행합니다.
 
 ```powershell
-& 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m pip install PyMySQL
+python -m pip install PyMySQL
 $env:DB_HOST='127.0.0.1'
 $env:DB_PORT='3306'
 $env:DB_USER='사용자명'
@@ -92,26 +92,26 @@ $env:DB_NAME='데이터베이스명'
 
 ## Wireshark 검증
 
-실제 TCP 캡처와 패킷별 판독 결과는 `outputs/tcp_9090_loopback_capture.pcapng` 및 `outputs/TCP_3way_handshake_검증.md`에 있습니다. Wireshark에서 캡처 파일을 열고 `tcp.port == 9090` 필터를 적용하면 3-way handshake, 세션 생성, 진단 요청·응답, 로그아웃을 확인할 수 있습니다.
+실제 TCP 캡처와 패킷별 판독 결과는 `tcp_9090_loopback_capture.pcapng` 및 `TCP_3way_handshake_검증.md`에 있습니다. Wireshark에서 캡처 파일을 열고 `tcp.port == 9090` 필터를 적용하면 3-way handshake, 세션 생성, 진단 요청·응답, 로그아웃을 확인할 수 있습니다.
 
-기존 MariaDB 연동 캡처는 `outputs/live_mariadb_tcp_capture.pcapng`와 `outputs/LIVE_MariaDB_TCP_검증.md`에 있습니다. 이 캡처는 이전 3306 실행에서 기록한 것이므로 표시 필터는 `tcp.port == 9090 || tcp.port == 3306`입니다. 새 3307 설치의 패킷 캡처와 혼동하지 마세요.
+기존 MariaDB 연동 캡처는 `live_mariadb_tcp_capture.pcapng`와 `LIVE_MariaDB_TCP_검증.md`에 있습니다. 이 캡처는 이전 3306 실행에서 기록한 것이므로 표시 필터는 `tcp.port == 9090 || tcp.port == 3306`입니다. 새 3307 설치의 패킷 캡처와 혼동하지 마세요.
 
 Wireshark에 포함된 TShark가 설치되어 있으면 두 캡처의 3-way handshake, MariaDB 인사·TLS, LIVE/DEMO 응답을 다음 명령으로 재검증할 수 있습니다. 캡처 파일은 수정하지 않습니다.
 
 ```powershell
-& 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B -m scripts.check_packet_evidence
+python -B -m scripts.check_packet_evidence
 ```
 
 ## 테스트
 
 ```powershell
-& 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```
 
 발표 직전에는 실행 중인 웹 화면·LIVE·DEMO 3상태·OSI 7계층을 한 번에 점검할 수 있습니다. 현재 임시 서버(9091)를 사용할 때:
 
 ```powershell
-& 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe' -B -m scripts.check_presentation_demo --demo-port 9091
+python -B -m scripts.check_presentation_demo --demo-port 9091
 ```
 
 나중에 새 TCP 서버가 9090 하나로 실행되면 `--demo-port 9091`을 빼고 같은 명령을 사용합니다.
