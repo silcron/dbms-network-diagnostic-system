@@ -1,0 +1,11 @@
+# Local MariaDB data and secrets
+DBMSCourseMariaDB-3307/
+secrets/
+data/
+logs/
+*.log
+
+# Python cache and local environment
+__pycache__/
+*.py[cod]
+.venv/
