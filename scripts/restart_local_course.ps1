@@ -1,7 +1,8 @@
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$pythonExe = 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$pythonCommand = Get-Command python -ErrorAction Stop
+$pythonExe = $pythonCommand.Source
 $expected = @(
     @{ Port = 9090; Module = 'app.server' },
     @{ Port = 9091; Module = 'app.server' },
