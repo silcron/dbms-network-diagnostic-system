@@ -10,8 +10,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEMO_CAPTURE = ROOT / "outputs" / "tcp_9090_loopback_capture.pcapng"
-LIVE_CAPTURE = ROOT / "outputs" / "live_mariadb_tcp_capture.pcapng"
+DEMO_CAPTURE = ROOT / "tcp_9090_loopback_capture.pcapng"
+LIVE_CAPTURE = ROOT / "live_mariadb_tcp_capture.pcapng"
 
 
 def tshark(executable: str, capture: Path, display_filter: str, *fields: str) -> list[list[str]]:
