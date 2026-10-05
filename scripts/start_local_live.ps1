@@ -1,8 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$installRoot = 'C:\Users\phili\AppData\Local\DBMSCourseMariaDB-3307'
-$pythonExe = 'C:\Users\phili\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$installRoot = Join-Path $env:LOCALAPPDATA 'DBMSCourseMariaDB-3307'
+$pythonCommand = Get-Command python -ErrorAction Stop
+$pythonExe = $pythonCommand.Source
 $mariaBin = Join-Path $installRoot 'mariadb-11.8.9-winx64\bin\mariadbd.exe'
 $mariaConfig = Join-Path $installRoot 'data\my.ini'
 $monitorSecret = Join-Path $installRoot 'secrets\monitor-password.txt'
