@@ -1,6 +1,6 @@
 # 팀 개발 브리핑
 
-> 마지막 갱신: 2026-09-30  
+> 마지막 갱신: 2026-10-06  
 > 저장소: `main` 브랜치 / 비공개 협업 저장소
 
 ## 1. 프로젝트 한 줄 소개
@@ -76,7 +76,7 @@
 - [ ] 본인 PC에서 DEMO 모드 실행 및 세 상태 확인
 - [ ] 본인 PC에서 LIVE 모드 실행 및 MariaDB 연결 확인
 - [ ] `python -m unittest discover -s tests -v` 테스트 실행
-- [ ] 발표 시 보여 줄 화면 순서 결정: LIVE 정상 → DEMO 지연 → DEMO 접속 실패
+- [ ] 발표 시 보여 줄 화면 순서 연습: DEMO 정상 → DEMO 지연 → DEMO 접속 실패 (LIVE는 사전 점검 성공 시 추가)
 - [ ] Wireshark로 TCP 9090의 3-way handshake 캡처 연습
 
 ## 7. 협업 규칙
@@ -97,8 +97,11 @@
 ## 9. 참고
 
 - 전체 실행·설치 절차: [README.md](README.md)
+- 발표용 DEMO TCP 9090 캡처: [TCP_3way_handshake_검증.md](TCP_3way_handshake_검증.md)
+- 발표용 LIVE MariaDB 3307 캡처: [LIVE_MariaDB_TCP_검증.md](LIVE_MariaDB_TCP_검증.md)
+- 2026-10-05 팀원 PC에서 기록한 두 캡처는 `python -B -m scripts.check_packet_evidence`로 재검증합니다. TShark가 필요하며, LIVE 응답은 59번 패킷입니다.
 - 개념 학습 페이지: [app/static/guide.html](app/static/guide.html)
-- 발표 자료는 로컬 산출물로 관리하며, 이 저장소에는 프로그램 소스와 협업 문서만 둡니다.
+- 발표 슬라이드는 로컬 산출물로 관리하며, 이 저장소에는 프로그램 소스, 협업 문서, 공유용 TCP 캡처를 둡니다. 캡처 공유 전 비밀번호·개인정보 포함 여부를 확인합니다.
 
 
 ## 10. 과제 요구조건과 충족 근거

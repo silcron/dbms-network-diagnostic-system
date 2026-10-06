@@ -92,9 +92,11 @@ $env:DB_NAME='데이터베이스명'
 
 ## Wireshark 검증
 
-실제 TCP 캡처와 패킷별 판독 결과는 `tcp_9090_loopback_capture.pcapng` 및 `TCP_3way_handshake_검증.md`에 있습니다. Wireshark에서 캡처 파일을 열고 `tcp.port == 9090` 필터를 적용하면 3-way handshake, 세션 생성, 진단 요청·응답, 로그아웃을 확인할 수 있습니다.
+발표용 DEMO 캡처는 [demo_tcp_9090_20261005.pcapng](demo_tcp_9090_20261005.pcapng), 패킷별 판독 결과는 [TCP_3way_handshake_검증.md](TCP_3way_handshake_검증.md)에 있습니다. Wireshark에서 `tcp.port == 9090` 필터를 적용하면 3-way handshake(1~3번), 세션 생성, 진단 요청·응답(10번), 로그아웃을 확인할 수 있습니다. 총 19개 패킷이며 진단 결과는 `DEMO · NORMAL`입니다.
 
-기존 MariaDB 연동 캡처는 `live_mariadb_tcp_capture.pcapng`와 `LIVE_MariaDB_TCP_검증.md`에 있습니다. 이 캡처는 이전 3306 실행에서 기록한 것이므로 표시 필터는 `tcp.port == 9090 || tcp.port == 3306`입니다. 새 3307 설치의 패킷 캡처와 혼동하지 마세요.
+발표용 LIVE 캡처는 [live_mariadb_3307_20261005.pcapng](live_mariadb_3307_20261005.pcapng), 판독 결과는 [LIVE_MariaDB_TCP_검증.md](LIVE_MariaDB_TCP_검증.md)에 있습니다. 2026-10-05 팀원 PC의 MariaDB **3307** 환경에서 기록한 68개 패킷으로, 표시 필터는 `tcp.port == 9090 || tcp.port == 3307`입니다. LIVE 정상 진단 응답은 **59번** 패킷입니다. 이전 3306 캡처를 대체하며, 기존 자료는 Git 이력에 남아 있습니다.
+
+3307 통신이 MySQL/MariaDB로 표시되지 않으면 Wireshark의 **Analyze → Decode As…**에서 TCP 포트 3307을 `MySQL`로 지정합니다. 아래 검증 스크립트는 TShark의 `-d tcp.port==3307,mysql` 옵션을 자동으로 적용합니다. TLS로 암호화된 로그인·SQL 내용을 직접 읽을 수는 없으며, `SELECT 1` 성공은 프로그램의 LIVE 정상 응답으로 확인합니다.
 
 Wireshark에 포함된 TShark가 설치되어 있으면 두 캡처의 3-way handshake, MariaDB 인사·TLS, LIVE/DEMO 응답을 다음 명령으로 재검증할 수 있습니다. 캡처 파일은 수정하지 않습니다.
 
