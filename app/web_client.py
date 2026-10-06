@@ -7,13 +7,15 @@ import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any
+from time import monotonic
+from typing import Any, Final
 
 from .client_core import DiagnosticClient
 from .protocol import ProtocolError
 
 STATIC_DIR = Path(__file__).with_name("static")
 MAX_HTTP_BODY_BYTES = 4096
+HTTP_BODY_DRAIN_SECONDS: Final = 1.0
 
 
 class WebClientHandler(BaseHTTPRequestHandler):
@@ -35,6 +37,8 @@ class WebClientHandler(BaseHTTPRequestHandler):
             return
         try:
             length = int(self.headers.get("Content-Length", "0"))
+            if length > MAX_HTTP_BODY_BYTES:
+                self._discard_request_body(length)
             if not 0 < length <= MAX_HTTP_BODY_BYTES:
                 raise ValueError("request body must be between 1 and 4096 bytes")
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
@@ -52,6 +56,25 @@ class WebClientHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.OK, response)
         except Exception as exc:
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": f"{type(exc).__name__}: {exc}"})
+
+    def _discard_request_body(self, length: int) -> None:
+        remaining = length
+        deadline = monotonic() + HTTP_BODY_DRAIN_SECONDS
+        original_timeout = self.connection.gettimeout()
+        try:
+            while remaining > 0:
+                seconds_left = deadline - monotonic()
+                if seconds_left <= 0:
+                    break
+                self.connection.settimeout(seconds_left)
+                chunk = self.rfile.read1(min(remaining, MAX_HTTP_BODY_BYTES))
+                if not chunk:
+                    break
+                remaining -= len(chunk)
+        except TimeoutError:
+            return
+        finally:
+            self.connection.settimeout(original_timeout)
 
     @staticmethod
     def _diagnose(host: str, port: int, demo_scenario: str, mode: str) -> dict[str, Any]:
