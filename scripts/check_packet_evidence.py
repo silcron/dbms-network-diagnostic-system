@@ -10,12 +10,15 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEMO_CAPTURE = ROOT / "tcp_9090_loopback_capture.pcapng"
-LIVE_CAPTURE = ROOT / "live_mariadb_tcp_capture.pcapng"
+DEMO_CAPTURE = ROOT / "demo_tcp_9090_20261005.pcapng"
+LIVE_CAPTURE = ROOT / "live_mariadb_3307_20261005.pcapng"
 
 
 def tshark(executable: str, capture: Path, display_filter: str, *fields: str) -> list[list[str]]:
-    command = [executable, "-n", "-r", str(capture), "-Y", display_filter, "-T", "fields"]
+    command = [
+        executable, "-n", "-r", str(capture), "-d", "tcp.port==3307,mysql",
+        "-Y", display_filter, "-T", "fields",
+    ]
     for field in fields:
         command.extend(("-e", field))
     output = subprocess.check_output(command, text=True, encoding="utf-8").strip()
@@ -61,25 +64,33 @@ def main() -> None:
 
     check_handshake(args.tshark, DEMO_CAPTURE, 0, (1, 2, 3), 9090)
     demo = response_json(args.tshark, DEMO_CAPTURE, 10)
-    if demo.get("result", {}).get("mode") != "DEMO" or len(demo.get("osi_trace", [])) != 7:
-        raise RuntimeError("DEMO 응답의 모드 또는 OSI 7계층 기록이 맞지 않습니다.")
-    print("OK  DEMO 응답: 모의 결과와 OSI 7계층 확인")
+    demo_result = demo.get("result", {})
+    if (demo_result.get("mode"), demo_result.get("status")) != ("DEMO", "NORMAL") or len(demo.get("osi_trace", [])) != 7:
+        raise RuntimeError("DEMO 응답의 상태 또는 OSI 7계층 기록이 맞지 않습니다.")
+    print("OK  DEMO/NORMAL 응답: 모의 결과와 OSI 7계층 확인")
 
     check_handshake(args.tshark, LIVE_CAPTURE, 0, (1, 2, 3), 9090)
-    check_handshake(args.tshark, LIVE_CAPTURE, 1, (10, 11, 12), 3306)
+    check_handshake(args.tshark, LIVE_CAPTURE, 1, (10, 11, 12), 3307)
     version = tshark(args.tshark, LIVE_CAPTURE, "frame.number==13", "mysql.version")
     if len(version) != 1 or not version[0][0].startswith("11.8.9-MariaDB"):
         raise RuntimeError("MariaDB 11.8.9 서버 인사 메시지를 확인하지 못했습니다.")
     tls = tshark(args.tshark, LIVE_CAPTURE, "tcp.stream==1 && tls.record", "frame.number")
     if not tls:
         raise RuntimeError("MariaDB 연결의 TLS 패킷을 확인하지 못했습니다.")
-    live = response_json(args.tshark, LIVE_CAPTURE, 58)
+    tls13 = tshark(
+        args.tshark, LIVE_CAPTURE,
+        "tcp.stream==1 && tls.handshake.type==2 && tls.handshake.extensions.supported_version==0x0304",
+        "frame.number",
+    )
+    if not tls13:
+        raise RuntimeError("MariaDB 연결에서 서버가 선택한 TLS 1.3을 확인하지 못했습니다.")
+    live = response_json(args.tshark, LIVE_CAPTURE, 59)
     result = live.get("result", {})
     if (result.get("mode"), result.get("status")) != ("LIVE", "NORMAL") or len(live.get("osi_trace", [])) != 7:
         raise RuntimeError("LIVE 응답의 상태 또는 OSI 7계층 기록이 맞지 않습니다.")
     if "database_connect_ms" not in result or "database_rtt_ms" not in result:
         raise RuntimeError("LIVE 응답에 DB 연결·전체 지연시간이 없습니다.")
-    print(f"OK  MariaDB {version[0][0]} 인사, TLS 패킷 {len(tls)}개, LIVE/NORMAL 응답")
+    print(f"OK  MariaDB {version[0][0]} 인사, TLS 1.3 협상, TLS 패킷 {len(tls)}개, LIVE/NORMAL 응답 (59)")
     print("패킷 증거 검증 완료. 루프백 캡처는 물리 케이블·무선 신호를 증명하지 않습니다.")
 
 

@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import threading
 import unittest
+from contextlib import closing
+from email.message import Message
+from http.client import HTTPConnection
 from http.server import ThreadingHTTPServer
+from io import BytesIO
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from unittest.mock import patch
@@ -89,12 +94,41 @@ class WebClientIntegrationTests(unittest.TestCase):
         self.assertEqual(status_code, 400)
         self.assertIn("4096", data["error"])
 
+    def test_incomplete_oversized_upload_returns_an_error_without_hanging(self) -> None:
+        # Given: a client declares an oversized body but does not send it.
+        with closing(HTTPConnection("127.0.0.1", self.web_server.server_port, timeout=3)) as client:
+            # When: the server receives only the request headers.
+            client.request("POST", "/api/diagnose", headers={"Content-Length": "5000"})
+            response = client.getresponse()
+            data = json.loads(response.read())
+        # Then: rejection still returns a complete JSON response within the client timeout.
+        self.assertEqual(response.status, 400)
+        self.assertIn("4096", data["error"])
+
     def test_page_shows_the_tcp_client_server_path(self) -> None:
         with urlopen(f"http://127.0.0.1:{self.web_server.server_address[1]}/", timeout=3) as response:
             page = response.read().decode("utf-8")
         self.assertIn("웹 클라이언트", page)
         self.assertIn("진단 서버", page)
         self.assertIn("TCP 연결", page)
+
+
+class WebRequestBodyLimitTests(unittest.TestCase):
+    def test_oversized_body_is_consumed_before_error_response(self) -> None:
+        # Given: rejected bytes are still waiting in the handler's input stream.
+        body = BytesIO(b"x" * 5000)
+        handler = WebClientHandler.__new__(WebClientHandler)
+        handler.path = "/api/diagnose"
+        handler.headers = Message()
+        handler.headers["Content-Length"] = "5000"
+        handler.rfile = body
+        with socket.socket() as connection, patch.object(handler, "_send_json") as send_json:
+            handler.connection = connection
+            # When: the handler rejects the oversized request.
+            handler.do_POST()
+        # Then: closing the connection cannot discard unread submitted request bytes.
+        self.assertEqual(body.tell(), 5000)
+        self.assertEqual(send_json.call_args.args[0], 400)
 
 
 if __name__ == "__main__":
