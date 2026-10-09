@@ -1,6 +1,6 @@
 # 팀 개발 브리핑
 
-> 마지막 갱신: 2026-10-06  
+> 마지막 갱신: 2026-10-08
 > 저장소: `main` 브랜치 / 비공개 협업 저장소
 
 ## 1. 프로젝트 한 줄 소개
@@ -23,6 +23,11 @@
 - [x] 단위·통합 테스트 (`tests/`)
 - [x] 로컬 MariaDB 설치·실행·점검 스크립트
 - [x] 학습용 안내 페이지 (`app/static/guide.html`)
+- [x] TCP frame/idle/send 기한과 연결 소유 세션 정리
+- [x] LIVE 단계(`connect`/`query`)·원인·시간을 포함하는 호환 진단 결과
+- [x] 웹 프로세스 관찰 범위의 유한 label `/metrics`
+- [x] DB 없는 발표를 위한 DEMO 전용 점검 경로
+- [x] 선택적 Toxiproxy fault runner와 bounded TShark stream 분석
 
 ## 3. 프로그램 구조와 요청 흐름
 
@@ -43,9 +48,16 @@
 | `app/client_core.py` | JSON-over-TCP 클라이언트 |
 | `app/protocol.py` | JSON·UTF-8 및 메시지 길이 프레이밍 |
 | `app/diagnostics.py` | LIVE/DEMO 진단 로직, 응답 시간 측정 |
+| `app/db_probe.py` | LIVE DB 연결·`SELECT 1` 단계와 안전한 오류 분류 |
+| `app/diagnostic_models.py` | LIVE 단계·원인·시간 결과의 typed contract |
+| `app/metrics.py` | 웹 프로세스의 유한 label 관찰 지표 |
+| `app/web_inputs.py` | HTTP body와 요청 값의 bounded validation |
 | `app/static/` | 웹 화면 파일 (HTML/CSS/JS) |
 | `app/static/guide.html` | DBMS·네트워크·프로그램 기능 학습 안내 페이지 |
 | `scripts/` | MariaDB 설치·실행·재시작·검증 도구 |
+| `scripts/check_fault_scenarios.py` | 이미 실행 중인 로컬 Toxiproxy에 한정한 선택적 장애 시나리오 |
+| `scripts/packet_analysis.py` | TShark stream payload의 제한된 진단 frame 분석 |
+| `scripts/packet_tshark.py` | TShark subprocess deadline·output 제한 |
 | `tests/` | 프로토콜·진단·웹 클라이언트 테스트 |
 
 ## 5. OSI 7계층과 프로그램의 연결
@@ -79,6 +91,12 @@
 - [ ] 발표 시 보여 줄 화면 순서 연습: DEMO 정상 → DEMO 지연 → DEMO 접속 실패 (LIVE는 사전 점검 성공 시 추가)
 - [ ] Wireshark로 TCP 9090의 3-way handshake 캡처 연습
 
+보강된 명령은 [기법 적용 기록](docs/TECHNIQUE_ADOPTION.md)에서 확인합니다. DB 없는 발표는 다음 gate를 사용합니다.
+
+```powershell
+python -B -m scripts.check_presentation_demo --demo-only --host 127.0.0.1 --demo-port <owned_tcp_port> --web-port <owned_http_port> --require-current-server
+```
+
 ## 7. 협업 규칙
 
 - 작업 시작 전: `git pull`
@@ -101,6 +119,7 @@
 - 발표용 LIVE MariaDB 3307 캡처: [LIVE_MariaDB_TCP_검증.md](LIVE_MariaDB_TCP_검증.md)
 - 2026-10-05 팀원 PC에서 기록한 두 캡처는 `python -B -m scripts.check_packet_evidence`로 재검증합니다. TShark가 필요하며, LIVE 응답은 59번 패킷입니다.
 - 개념 학습 페이지: [app/static/guide.html](app/static/guide.html)
+- 외부 기법의 출처·라이선스·적용 경계: [docs/TECHNIQUE_ADOPTION.md](docs/TECHNIQUE_ADOPTION.md)
 - 발표 슬라이드는 로컬 산출물로 관리하며, 이 저장소에는 프로그램 소스, 협업 문서, 공유용 TCP 캡처를 둡니다. 캡처 공유 전 비밀번호·개인정보 포함 여부를 확인합니다.
 
 
