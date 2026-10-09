@@ -5,10 +5,110 @@ from __future__ import annotations
 import queue
 import threading
 import tkinter as tk
+from math import isfinite
 from tkinter import messagebox, scrolledtext, ttk
-from typing import Callable
+from typing import Callable, Dict, List, Union
 
 from .client_core import DiagnosticClient
+
+JsonValue = Union[str, int, float, bool, None, List["JsonValue"], Dict[str, "JsonValue"]]
+JsonObject = Dict[str, JsonValue]
+EventPayload = Union[JsonObject, Exception, None]
+
+_PHASE_NAMES = {"config": "설정", "dependency": "의존성", "connect": "DB 연결·인증", "query": "SELECT 1"}
+_ERROR_NAMES = {
+    "config": "설정",
+    "dependency": "의존성",
+    "network": "네트워크",
+    "timeout": "시간 초과",
+    "auth": "인증",
+    "database": "데이터베이스",
+    "query": "쿼리",
+    "internal": "내부 처리",
+}
+
+
+class PresentationError(ValueError):
+    field: str
+
+    def __init__(self, field: str) -> None:
+        self.field = field
+        super().__init__(f"invalid diagnostic field: {field}")
+
+
+def _required_text(values: JsonObject, field: str) -> str:
+    value = values.get(field)
+    if not isinstance(value, str):
+        raise PresentationError(field)
+    return value
+
+
+def _finite_nonnegative(value: JsonValue) -> Union[int, float, None]:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return value if value >= 0 and isfinite(float(value)) else None
+    except OverflowError:
+        return None
+
+
+def format_diagnostic_lines(response: JsonObject) -> list[str]:
+    result_value = response.get("result")
+    trace_value = response.get("osi_trace")
+    if not isinstance(result_value, dict):
+        raise PresentationError("result")
+    if not isinstance(trace_value, list):
+        raise PresentationError("osi_trace")
+    result: JsonObject = result_value
+
+    status = _required_text(result, "status")
+    mode = _required_text(result, "mode")
+    database = _required_text(result, "database")
+    detail = _required_text(result, "detail")
+    client_rtt_ms = _finite_nonnegative(response.get("client_rtt_ms"))
+    if client_rtt_ms is None:
+        raise PresentationError("client_rtt_ms")
+
+    lines = [
+        "[DBMS DIAGNOSTIC]",
+        f"상태: {status}  |  모드: {mode}",
+        f"대상: {database}",
+        f"설명: {detail}",
+        f"클라이언트 왕복 시간: {client_rtt_ms} ms",
+    ]
+    simulated = "모의 " if mode == "DEMO" else ""
+    facts: list[str] = []
+    for field, label in (("database_connect_ms", "DB 연결·인증"), ("query_ms", "SELECT 1")):
+        duration = _finite_nonnegative(result.get(field))
+        if duration is not None:
+            facts.append(f"{simulated}{label}: {duration} ms")
+    total = _finite_nonnegative(result.get("total_ms"))
+    if total is not None:
+        facts.append(f"{simulated}진단 전체: {total} ms")
+    else:
+        legacy_total = _finite_nonnegative(result.get("database_rtt_ms"))
+        if legacy_total is not None:
+            facts.append(f"{simulated}DB 진단 전체: {legacy_total} ms")
+
+    failed_phase = result.get("failed_phase")
+    if isinstance(failed_phase, str) and failed_phase in _PHASE_NAMES:
+        facts.append(f"{simulated}실패 단계: {_PHASE_NAMES[failed_phase]}")
+    error_kind = result.get("error_kind")
+    if isinstance(error_kind, str) and error_kind in _ERROR_NAMES:
+        facts.append(f"{simulated}오류 원인: {_ERROR_NAMES[error_kind]}")
+    db_errno = result.get("db_errno")
+    if isinstance(db_errno, int) and not isinstance(db_errno, bool) and db_errno >= 0:
+        facts.append(f"{simulated}DB 오류 번호: {db_errno}")
+    if facts:
+        lines.append("진단 세부: " + " · ".join(facts))
+
+    lines.extend(("", "[OSI 7-LAYER TRACE]"))
+    for item in trace_value:
+        if not isinstance(item, dict):
+            raise PresentationError("osi_trace")
+        trace_item: JsonObject = item
+        lines.append(f"{_required_text(trace_item, 'layer')}: {_required_text(trace_item, 'application')}")
+    return lines
 
 
 class App(tk.Tk):
@@ -18,7 +118,7 @@ class App(tk.Tk):
         self.geometry("1030x720")
         self.minsize(900, 620)
         self.client: DiagnosticClient | None = None
-        self.events: queue.Queue[tuple[str, object]] = queue.Queue()
+        self.events: queue.Queue[tuple[str, EventPayload]] = queue.Queue()
         self._build()
         self.after(100, self._drain_events)
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -61,11 +161,11 @@ class App(tk.Tk):
         self.output.see("end")
         self.output.configure(state="disabled")
 
-    def _run(self, action: Callable[[], object], event: str) -> None:
+    def _run(self, action: Callable[[], Union[JsonObject, None]], event: str) -> None:
         def worker() -> None:
             try:
                 self.events.put((event, action()))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BROAD_EXCEPT_OK
                 self.events.put(("error", exc))
 
         threading.Thread(target=worker, daemon=True).start()
@@ -92,30 +192,38 @@ class App(tk.Tk):
         while not self.events.empty():
             event, payload = self.events.get_nowait()
             if event == "connected":
-                response = payload  # type: ignore[assignment]
+                if not isinstance(payload, dict):
+                    self.status.set("오류 발생")
+                    self._write("[ERROR] 연결 응답 형식이 잘못되었습니다.")
+                    continue
+                try:
+                    message = _required_text(payload, "message")
+                    session_id = _required_text(payload, "session_id")
+                except PresentationError as exc:
+                    self.status.set("오류 발생")
+                    self._write(f"[ERROR] {exc}")
+                    continue
                 self.status.set("연결됨 · 세션이 생성되었습니다")
                 self.connect_button.configure(state="disabled")
                 self.diagnose_button.configure(state="normal")
                 self.logout_button.configure(state="normal")
-                self._write(f"[SESSION]\n{response['message']}\n세션 ID: {response['session_id'][:12]}…")  # type: ignore[index]
+                self._write(f"[SESSION]\n{message}\n세션 ID: {session_id[:12]}…")
             elif event == "diagnosed":
-                response = payload  # type: ignore[assignment]
-                if response.get("type") == "error":  # type: ignore[union-attr]
-                    self._write(f"[ERROR] {response.get('message')}")  # type: ignore[union-attr]
+                if not isinstance(payload, dict):
+                    self.status.set("오류 발생")
+                    self._write("[ERROR] 진단 응답 형식이 잘못되었습니다.")
+                elif payload.get("type") == "error":
+                    message = payload.get("message")
+                    self._write(f"[ERROR] {message if isinstance(message, str) else '진단 서버가 요청을 거부했습니다.'}")
                 else:
-                    result = response["result"]  # type: ignore[index]
-                    lines = [
-                        "[DBMS DIAGNOSTIC]",
-                        f"상태: {result['status']}  |  모드: {result['mode']}",
-                        f"대상: {result['database']}",
-                        f"설명: {result['detail']}",
-                        f"클라이언트 왕복 시간: {response['client_rtt_ms']} ms",  # type: ignore[index]
-                        "",
-                        "[OSI 7-LAYER TRACE]",
-                    ]
-                    lines.extend(f"{item['layer']}: {item['application']}" for item in response["osi_trace"])  # type: ignore[index]
-                    self._write("\n".join(lines))
-                    self.status.set("진단 완료 · 결과와 OSI 추적 로그를 확인하세요")
+                    try:
+                        lines = format_diagnostic_lines(payload)
+                    except PresentationError as exc:
+                        self.status.set("오류 발생")
+                        self._write(f"[ERROR] {exc}")
+                    else:
+                        self._write("\n".join(lines))
+                        self.status.set("진단 완료 · 결과와 OSI 추적 로그를 확인하세요")
             elif event == "logged_out":
                 self.client = None
                 self.status.set("로그아웃됨")
@@ -125,7 +233,10 @@ class App(tk.Tk):
                 self._write("[SESSION] Session closed.")
             elif event == "error":
                 self.status.set("오류 발생")
-                self._write(f"[ERROR] {type(payload).__name__}: {payload}")
+                if isinstance(payload, Exception):
+                    self._write(f"[ERROR] {type(payload).__name__}: {payload}")
+                else:
+                    self._write("[ERROR] 알 수 없는 오류가 발생했습니다.")
         self.after(100, self._drain_events)
 
     def _on_close(self) -> None:
