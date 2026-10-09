@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import os
 import socket
-import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any
+from typing import Union
+
+from app.db_probe import probe_live_database
+from app.diagnostic_models import DemoDiagnosticResult, LiveDiagnosticResult
 
 
 def utc_now() -> str:
@@ -20,14 +22,19 @@ def format_mac() -> str:
 
 
 DEMO_SCENARIOS = {"normal", "warning", "down"}
-DB_TIMEOUT_SECONDS = 3
-DB_WARNING_MS = 500
 
 
-def probe_database(demo_scenario: str = "normal", mode: str = "auto") -> dict[str, Any]:
+class InvalidDiagnosticModeError(ValueError):
+    def __init__(self) -> None:
+        super().__init__("mode must be auto, live, or demo")
+
+
+def probe_database(
+    demo_scenario: str = "normal", mode: str = "auto"
+) -> Union[DemoDiagnosticResult, LiveDiagnosticResult]:
     """Run a real probe or a clearly labelled simulation."""
     if mode not in {"auto", "live", "demo"}:
-        raise ValueError("mode must be auto, live, or demo")
+        raise InvalidDiagnosticModeError
     host = os.getenv("DB_HOST")
     if mode == "demo" or (mode == "auto" and not host):
         scenario = demo_scenario if demo_scenario in DEMO_SCENARIOS else "normal"
@@ -52,93 +59,7 @@ def probe_database(demo_scenario: str = "normal", mode: str = "auto") -> dict[st
             "database": "MariaDB (모의 시연)",
         }
 
-    if not host:
-        return {
-            "mode": "LIVE",
-            "scenario": "live",
-            "status": "WARNING",
-            "database": "MariaDB (미설정)",
-            "detail": "실제 진단을 위한 DB_HOST가 설정되지 않았습니다. 모의 결과로 대체하지 않았습니다.",
-        }
-
-    started = time.perf_counter()
-    database = f"MariaDB ({host})"
-    try:
-        port = int(os.getenv("DB_PORT", "3306"))
-        if not 1 <= port <= 65535:
-            raise ValueError("DB_PORT must be between 1 and 65535")
-    except ValueError:
-        return {
-            "mode": "LIVE",
-            "scenario": "live",
-            "status": "WARNING",
-            "database": database,
-            "detail": "DB_PORT 설정이 잘못되었습니다. 1~65535 범위의 포트를 입력하세요.",
-        }
-
-    try:
-        import pymysql  # optional dependency
-    except ImportError:
-        return {
-            "mode": "LIVE",
-            "scenario": "live",
-            "status": "WARNING",
-            "database": database,
-            "detail": "PyMySQL이 설치되지 않아 실제 DBMS 접속을 확인할 수 없습니다.",
-        }
-
-    connection = None
-    database_connect_ms = None
-    try:
-        connection = pymysql.connect(
-            host=host,
-            port=port,
-            user=os.getenv("DB_USER", "root"),
-            password=os.getenv("DB_PASSWORD", ""),
-            database=os.getenv("DB_NAME") or None,
-            connect_timeout=DB_TIMEOUT_SECONDS,
-            read_timeout=DB_TIMEOUT_SECONDS,
-            write_timeout=DB_TIMEOUT_SECONDS,
-        )
-        database_connect_ms = round((time.perf_counter() - started) * 1000, 2)
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-            query_result = cursor.fetchone()
-        if not query_result or query_result[0] != 1:
-            raise ValueError("SELECT 1 returned an unexpected result")
-        database_rtt_ms = round((time.perf_counter() - started) * 1000, 2)
-        return {
-            "mode": "LIVE",
-            "scenario": "live",
-            "status": "WARNING" if database_rtt_ms > DB_WARNING_MS else "NORMAL",
-            "database": database,
-            "detail": (
-                f"TCP 연결·로그인·SELECT 1은 성공했지만, 전체 응답이 {DB_WARNING_MS} ms를 넘었습니다."
-                if database_rtt_ms > DB_WARNING_MS else "TCP 연결·DB 로그인·SELECT 1 쿼리가 모두 성공했습니다."
-            ),
-            "database_connect_ms": database_connect_ms,
-            "database_rtt_ms": database_rtt_ms,
-        }
-    except Exception as exc:  # database connection errors are a diagnostic result
-        error_code = exc.args[0] if exc.args else None
-        network_failure = isinstance(exc, OSError) or error_code in {2002, 2003, 2005, 2006, 2013}
-        result = {
-            "mode": "LIVE",
-            "scenario": "live",
-            "status": "DOWN" if network_failure else "WARNING",
-            "database": database,
-            "detail": (
-                f"DBMS 네트워크 연결 실패({type(exc).__name__}). 주소·포트·서비스 상태를 확인하세요."
-                if network_failure else f"DB 로그인 또는 SELECT 1 실행 실패({type(exc).__name__})."
-            ),
-            "database_rtt_ms": round((time.perf_counter() - started) * 1000, 2),
-        }
-        if database_connect_ms is not None:
-            result["database_connect_ms"] = database_connect_ms
-        return result
-    finally:
-        if connection is not None:
-            connection.close()
+    return probe_live_database()
 
 
 def build_osi_trace(peer_ip: str, server_ip: str, server_port: int, session_id: str) -> list[dict[str, str]]:
