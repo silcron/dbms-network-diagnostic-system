@@ -99,6 +99,7 @@ class WebClientHandler(BaseHTTPRequestHandler):
 
     def _read_request_body(self) -> bytes:
         if self.headers.get("Transfer-Encoding") is not None:
+            self._discard_request_body(MAX_HTTP_BODY_BYTES)
             raise HttpInputError("invalid_request", "transfer encoding is not supported")
         content_lengths = self.headers.get_all("Content-Length", [])
         if len(content_lengths) != 1:
