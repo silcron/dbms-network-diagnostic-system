@@ -9,6 +9,7 @@ let usingTemporaryDemoPort = false;
 
 function setText(selector, value) { document.querySelector(selector).textContent = value; }
 function selectedMode() { return document.querySelector('input[name="mode"]:checked').value; }
+function isDuration(value) { return typeof value === 'number' && Number.isFinite(value) && value >= 0; }
 function displayOsiItem(item) {
   // Already-localized responses from the new server need no conversion.
   if (/[가-힣]/.test(item.layer)) return item;
@@ -85,10 +86,24 @@ button.addEventListener('click', async () => {
     setText('#checked', data.checked_at);
     setText('#database', db.database);
     setText('#detail', db.detail);
-    const timing = [];
-    if (db.database_connect_ms !== undefined) timing.push(`DB 연결·인증 ${db.database_connect_ms} ms`);
-    if (db.database_rtt_ms !== undefined) timing.push(`DB 진단 전체 ${db.database_rtt_ms} ms`);
-    setText('#dbtiming', timing.join(' · '));
+    const facts = [];
+    const simulated = db.mode === 'DEMO' ? '모의 ' : '';
+    if (isDuration(db.database_connect_ms)) facts.push(`${simulated}DB 연결·인증 ${db.database_connect_ms} ms`);
+    if (isDuration(db.query_ms)) facts.push(`${simulated}SELECT 1 ${db.query_ms} ms`);
+    if (isDuration(db.total_ms)) {
+      facts.push(`${simulated}진단 전체 ${db.total_ms} ms`);
+    } else if (isDuration(db.database_rtt_ms)) {
+      facts.push(`${simulated}DB 진단 전체 ${db.database_rtt_ms} ms`);
+    }
+    const phaseNames = {config:'설정', dependency:'의존성', connect:'DB 연결·인증', query:'SELECT 1'};
+    const errorNames = {
+      config:'설정', dependency:'의존성', network:'네트워크', timeout:'시간 초과',
+      auth:'인증', database:'데이터베이스', query:'쿼리', internal:'내부 처리'
+    };
+    if (phaseNames[db.failed_phase]) facts.push(`${simulated}실패 단계 ${phaseNames[db.failed_phase]}`);
+    if (errorNames[db.error_kind]) facts.push(`${simulated}오류 원인 ${errorNames[db.error_kind]}`);
+    if (Number.isInteger(db.db_errno) && db.db_errno >= 0) facts.push(`${simulated}DB 오류 번호 ${db.db_errno}`);
+    setText('#dbtiming', facts.join(' · '));
     result.dataset.status = db.status.toLowerCase();
     const trace = document.querySelector('#osi');
     trace.replaceChildren(...data.osi_trace.map(rawItem => {

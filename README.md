@@ -118,3 +118,55 @@ python -B -m scripts.check_presentation_demo --demo-port 9091
 
 나중에 새 TCP 서버가 9090 하나로 실행되면 `--demo-port 9091`을 빼고 같은 명령을 사용합니다.
 
+## 외부 기법 적용과 추가 검증
+
+이번 보강은 기존 동기 TCP/JSON 구조를 유지하면서 프레임 수신 기한, 연결 소유 세션, 단계별 LIVE 진단, 유한 label metrics, 선택적 장애 주입, 스트림 기반 캡처 판독을 추가합니다. 적용 근거와 출처별 라이선스·로컬 파일·검증 범위는 [기법 적용 기록](docs/TECHNIQUE_ADOPTION.md)에 정리했습니다.
+
+프로토콜은 **v2, 4바이트 big-endian 길이 헤더, 최대 1 MiB payload**를 그대로 사용합니다. Real Python 예제의 버퍼 누적 원리만 참고하며, 그 예제의 JSON header/2바이트 길이 형식을 wire contract로 가져오지 않습니다. PyShark·Prometheus/Grafana·Toxiproxy는 기본 실행에 필요한 의존성이 아니며 TShark와 Toxiproxy 검증은 설치돼 있고 명시적으로 선택한 경우에만 실행합니다.
+
+### 시간 제한과 LIVE 결과
+
+- TCP idle은 60초, 전체 frame 수신은 10초, send는 5초입니다.
+- `DiagnosticClient` timeout을 생략하면 `DIAGNOSTIC_TIMEOUT_SECONDS`를 사용하고 기본값은 10초입니다. 값은 유한한 양수이고 120초 이하이며, 생성자에 지정한 timeout이 환경값보다 우선합니다.
+- DB connect/read/write timeout은 `DB_CONNECT_TIMEOUT_SECONDS`, `DB_READ_TIMEOUT_SECONDS`, `DB_WRITE_TIMEOUT_SECONDS`가 각각 기본 3초이며 0보다 큰 유한한 값, 최대 30초인 **연산별 제한**입니다. 기본값이 전체 진단을 10초 이내로 보장하는 것은 아니므로 큰 DB 예산에는 충분히 큰 client timeout을 지정합니다.
+- `DB_WARNING_MS`는 기본 500ms인 0보다 큰 유한한 값입니다. `query_ms`, `total_ms`, `failed_phase`, `error_kind`, `db_errno`는 기존 응답 key를 깨지 않는 선택적 LIVE 필드입니다.
+
+LIVE의 connect 시간은 PyMySQL 연결·인증 호출 전체이며 TCP/TLS/auth를 독립 측정했다는 뜻이 아닙니다. `SELECT 1`은 query 단계로 별도 측정합니다. 유효한 LIVE `WARNING`/`DOWN` 진단은 HTTP 200으로 전달하고, TCP timeout·reset처럼 진단을 받지 못한 경우에만 HTTP 504/502를 사용합니다. client timeout이 먼저 만료되면 socket/session을 정리하고 DEMO로 대체하지 않습니다.
+
+### DB 없는 발표 점검
+
+MariaDB가 없는 PC에서는 자체 서비스의 소유 port를 넣어 DEMO만 확인합니다.
+
+```powershell
+python -B -m scripts.check_presentation_demo --demo-only --host 127.0.0.1 --demo-port <owned_tcp_port> --web-port <owned_http_port> --require-current-server
+```
+
+이 gate는 DEMO의 NORMAL·WARNING·DOWN과 현재 서버 식별을 확인하며 LIVE 성공을 주장하지 않습니다. LIVE full gate와 `scripts/check_live.py`는 실제 DB 설정과 실행 중인 LIVE 서버가 준비된 경우에만 실행합니다. `check_live.py`에는 별도 `--help` 옵션이 없습니다.
+
+### Metrics 범위
+
+웹 프로세스의 `GET /metrics`는 해당 프로세스가 관찰한 요청만 집계하며 scrape 자체가 DB에 접속하지 않습니다. `mode`, `outcome`, `status`, `error_kind`는 정해진 유한 집합이고 세션 ID·DB host/user/name·원문 예외는 label이 되지 않습니다. DEMO 관측은 LIVE 상태를 갱신하지 않으며 process 재시작 시 metrics가 초기화됩니다. 직접 TCP와 Tkinter 요청은 웹 metrics 범위 밖입니다.
+
+### 선택적 장애·패킷 검증
+
+Toxiproxy는 이미 실행 중인 로컬 API에서 지정한 upstream/listen port에 유일한 proxy를 만들 때만 사용합니다. 기존 proxy와 전역 설정을 건드리지 않고, 자신이 만든 toxic/proxy를 모든 종료 경로에서 정리합니다.
+
+```powershell
+python -B -m scripts.check_fault_scenarios --toxiproxy-url http://127.0.0.1:8474 --target diagnostic --mode demo --upstream 127.0.0.1:<owned_tcp_port> --listen 127.0.0.1:<free_proxy_port>
+```
+
+이 명령은 이미 실행 중인 로컬 Toxiproxy API만 사용하며 설치나 daemon 시작을 하지 않습니다. exit 0은 fault와 recovery 검증 성공, exit 1은 assertion 또는 owned-proxy 계약 실패, exit 2는 API 부재와 같은 prerequisite skip을 뜻합니다.
+
+기존 캡처 gate는 유지하고, 새 stream 분석은 캡처와 port를 명시합니다.
+
+```powershell
+python -B -m scripts.check_packet_evidence
+python -B -m scripts.check_packet_evidence --capture demo_tcp_9090_20261005.pcapng --diagnostic-port 9090
+python -B -m scripts.check_packet_evidence --capture live_mariadb_3307_20261005.pcapng --diagnostic-port 9090 --db-port 3307
+```
+
+각 TShark subprocess는 15초의 실행 기한과 stdout/stderr 각각 4 MiB 상한을 가지며, 한 캡처에서 매칭하는 TCP stream은 최대 128개, 전체 decoded stream bytes는 8 MiB로 제한됩니다.
+TShark stream 분석은 분할·병합된 4바이트 length-prefixed 메시지, SYN/SYN-ACK/ACK 관계, 재전송·순서 이상·reset 관찰을 애플리케이션 status와 별도로 보고합니다. TLS가 적용된 MariaDB 캡처의 SQL 내용을 읽었다고 표시하지 않으며, loopback 전송 이상을 자동으로 DB DOWN으로 판정하지 않습니다.
+
+전체 적용 근거와 검증 명령의 실제 결과는 `.omo/evidence/upstream-adoption/task6-docs.md`에 기록합니다.
+
