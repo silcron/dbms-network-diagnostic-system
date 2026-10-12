@@ -5,11 +5,23 @@ const modeChoices = document.querySelectorAll('input[name="mode"]');
 const scenario = document.querySelector('#scenario');
 const modeHelp = document.querySelector('#mode-help');
 const portInput = document.querySelector('#port');
+const route = document.querySelector('#route');
+const buttonLabel = button.querySelector('.button-label');
 let usingTemporaryDemoPort = false;
 
 function setText(selector, value) { document.querySelector(selector).textContent = value; }
 function selectedMode() { return document.querySelector('input[name="mode"]:checked').value; }
 function isDuration(value) { return typeof value === 'number' && Number.isFinite(value) && value >= 0; }
+function formatCheckedAt(value) {
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2})/);
+  return match ? `${match[1]}.${match[2]}.${match[3]} ${match[4]}` : value;
+}
+function setNotice(message, state = 'ready') {
+  notice.querySelector('.notice-text').textContent = message;
+  notice.classList.toggle('is-running', state === 'running');
+  notice.classList.toggle('is-error', state === 'error');
+  notice.classList.toggle('is-stale', state === 'stale');
+}
 function displayOsiItem(item) {
   // Already-localized responses from the new server need no conversion.
   if (/[가-힣]/.test(item.layer)) return item;
@@ -43,12 +55,21 @@ function updateMode() {
   modeHelp.textContent = isDemo
     ? 'DEMO는 발표용 모의 결과입니다. 실제 MariaDB 연결 상태나 장애를 증명하지 않습니다.'
     : 'LIVE는 실제 MariaDB에 연결·로그인하고 SELECT 1을 실행합니다.';
-  notice.textContent = result.classList.contains('hidden')
-    ? (isDemo ? '시연할 모의 상황을 선택한 뒤 진단을 시작하세요.' : '실제 MariaDB 상태를 확인할 준비가 되었습니다.')
-    : '진단 방식이 변경되었습니다. 아래는 이전 결과이며, 새 방식의 결과를 보려면 「DBMS 진단 시작」을 다시 누르세요.';
+  const hasResult = !result.classList.contains('hidden');
+  result.classList.toggle('is-stale', hasResult);
+  route.classList.remove('is-complete', 'is-error');
+  setNotice(hasResult
+    ? '진단 방식이 변경되었습니다. 아래는 이전 결과입니다. 다시 진단하면 새 결과가 표시됩니다.'
+    : (isDemo ? '시연할 모의 상황을 선택한 뒤 진단을 시작하세요.' : '실제 MariaDB 상태를 확인할 준비가 되었습니다.'), hasResult ? 'stale' : 'ready');
 }
 modeChoices.forEach(choice => choice.addEventListener('change', updateMode));
 portInput.addEventListener('input', () => setText('#tcp-port-label', `TCP ${portInput.value} · 세션 확인`));
+scenario.addEventListener('change', () => {
+  if (!result.classList.contains('hidden')) {
+    result.classList.add('is-stale');
+    setNotice('모의 상황이 변경되었습니다. 진단을 다시 시작하면 새 결과가 표시됩니다.', 'stale');
+  }
+});
 updateMode();
 
 async function requestDiagnosis(host, port, mode, demoScenario) {
@@ -64,8 +85,13 @@ async function requestDiagnosis(host, port, mode, demoScenario) {
 
 button.addEventListener('click', async () => {
   button.disabled = true;
+  buttonLabel.textContent = '진단 중';
+  button.setAttribute('aria-busy', 'true');
+  route.classList.remove('is-complete', 'is-error');
+  route.classList.add('is-running');
+  result.classList.remove('is-stale');
   const requestedMode = selectedMode();
-  notice.textContent = 'TCP 서버에 연결하고 DBMS 상태를 확인하는 중입니다…';
+  setNotice('TCP 서버에 연결하고 DBMS 상태를 확인하는 중입니다…', 'running');
   try {
     const host = document.querySelector('#host').value;
     const port = Number(portInput.value);
@@ -83,23 +109,17 @@ button.addEventListener('click', async () => {
     setText('#status', db.status);
     setText('#mode', db.mode);
     setText('#rtt', `${data.client_rtt_ms} ms`);
-    setText('#checked', data.checked_at);
+    setText('#checked', formatCheckedAt(data.checked_at));
     setText('#database', db.database);
     setText('#detail', db.detail);
     const facts = [];
     const simulated = db.mode === 'DEMO' ? '모의 ' : '';
     if (isDuration(db.database_connect_ms)) facts.push(`${simulated}DB 연결·인증 ${db.database_connect_ms} ms`);
     if (isDuration(db.query_ms)) facts.push(`${simulated}SELECT 1 ${db.query_ms} ms`);
-    if (isDuration(db.total_ms)) {
-      facts.push(`${simulated}진단 전체 ${db.total_ms} ms`);
-    } else if (isDuration(db.database_rtt_ms)) {
-      facts.push(`${simulated}DB 진단 전체 ${db.database_rtt_ms} ms`);
-    }
+    if (isDuration(db.total_ms)) facts.push(`${simulated}진단 전체 ${db.total_ms} ms`);
+    else if (isDuration(db.database_rtt_ms)) facts.push(`${simulated}DB 진단 전체 ${db.database_rtt_ms} ms`);
     const phaseNames = {config:'설정', dependency:'의존성', connect:'DB 연결·인증', query:'SELECT 1'};
-    const errorNames = {
-      config:'설정', dependency:'의존성', network:'네트워크', timeout:'시간 초과',
-      auth:'인증', database:'데이터베이스', query:'쿼리', internal:'내부 처리'
-    };
+    const errorNames = {config:'설정', dependency:'의존성', network:'네트워크', timeout:'시간 초과', auth:'인증', database:'데이터베이스', query:'쿼리', internal:'내부 처리'};
     if (phaseNames[db.failed_phase]) facts.push(`${simulated}실패 단계 ${phaseNames[db.failed_phase]}`);
     if (errorNames[db.error_kind]) facts.push(`${simulated}오류 원인 ${errorNames[db.error_kind]}`);
     if (Number.isInteger(db.db_errno) && db.db_errno >= 0) facts.push(`${simulated}DB 오류 번호 ${db.db_errno}`);
@@ -114,12 +134,19 @@ button.addEventListener('click', async () => {
       line.append(layer, explanation); return line;
     }));
     result.classList.remove('hidden');
-    notice.textContent = db.mode === 'DEMO'
+    route.classList.add('is-complete');
+    setNotice(db.mode === 'DEMO'
       ? `${usingTemporaryDemoPort ? '임시 시연 서버(9091) · ' : ''}DEMO 결과입니다. 실제 DBMS 연결 여부는 확인하지 않았습니다.`
-      : 'LIVE 결과입니다. 아래 DBMS 연결 상태와 OSI 통신 추적을 확인하세요.';
+      : 'LIVE 결과입니다. 아래 DBMS 연결 상태와 OSI 통신 추적을 확인하세요.');
   } catch (error) {
-    notice.textContent = `오류: ${error.message}`;
+    setNotice(`오류: ${error.message}`, 'error');
+    route.classList.add('is-error');
     result.classList.add('hidden');
     result.dataset.status = '';
-  } finally { button.disabled = false; }
+  } finally {
+    route.classList.remove('is-running');
+    button.disabled = false;
+    buttonLabel.textContent = '진단 시작';
+    button.removeAttribute('aria-busy');
+  }
 });
