@@ -13,12 +13,7 @@
       <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>DBMS / NETWORK</span></div>
     </div>
 
-    <header class="hero">
-      <div>
-        <h1>DBMS 네트워크<br>접속 진단</h1>
-        <p class="subtitle">클라이언트의 요청이 진단 서버를 거쳐 DBMS에 도달하는 과정을 확인하고,<br class="desktop-break"> 연결 상태와 응답 시간을 한 화면에서 살펴봅니다.</p>
-      </div>
-    </header>
+    <header class="hero"><h1>DBMS 네트워크 접속 진단</h1></header>
 
     <section class="panel connection" aria-labelledby="config-title">
       <div class="section-heading">
@@ -48,18 +43,25 @@
       <div class="section-heading result-heading"><h2 id="result-title">진단 결과</h2></div>
       <div class="summary">
         <div class="summary-status"><span>진단 상태</span><strong id="status">-</strong></div>
-        <div><span>실행 모드</span><strong id="mode">-</strong></div>
+        <div><span id="mode-label">실행 모드</span><strong id="mode">-</strong></div>
         <div><span>클라이언트 왕복 시간</span><strong id="rtt">-</strong></div>
-        <div><span>확인 시각</span><strong id="checked">-</strong></div>
+        <div><span id="checked-label">확인 시각</span><strong id="checked">-</strong></div>
       </div>
       <section class="detail panel" aria-labelledby="detail-title">
-        <h3 id="detail-title">DBMS 진단 내용</h3>
-        <p id="database" class="database-name"></p><p id="detail"></p><p id="dbtiming" class="timing"></p>
+        <h3 id="detail-title">결과 해석</h3>
+        <p id="database" class="database-name"></p>
+        <p id="detail" class="verdict"></p>
+        <div class="reason-grid">
+          <div><span>확인된 근거</span><p id="evidence"></p></div>
+          <div><span>다음 점검</span><p id="next-check"></p></div>
+        </div>
+        <p id="dbtiming" class="timing"></p>
       </section>
       <section class="trace panel" aria-labelledby="trace-title">
-        <div class="section-heading"><h3 id="trace-title">OSI 7계층 적용</h3></div>
+        <div class="section-heading"><h3 id="trace-title">OSI 7계층 적용</h3><span class="trace-focus-key">1–4계층 중점</span></div>
+        <p id="trace-state" class="trace-state hidden"></p>
         <ol id="osi"></ol>
-        <p class="trace-note">5·6계층은 이 프로그램의 세션 관리·데이터 표현 기능에 대응합니다. 한 PC의 루프백 시연에서 1·2계층은 물리 케이블이나 Wi-Fi 전송을 뜻하지 않습니다.</p>
+        <p class="trace-note">로컬 루프백에서는 1·2계층에 실제 케이블·Wi‑Fi 전송이 없습니다. 5·6계층은 프로그램의 세션·데이터 표현 기능에 대응합니다.</p>
       </section>
     </section>
     <section class="panel route" id="route" aria-labelledby="route-title">
@@ -76,6 +78,11 @@
         <div class="route-node"><span class="node-index">04</span><span class="node-icon" aria-hidden="true">▤</span><strong id="path-target">MariaDB</strong><small id="path-action">접속 · 로그인 · SELECT 1</small></div>
       </div>
       <div class="route-footer"><span class="route-key"><i></i> 웹 클라이언트 ↔ 진단 서버: 직접 구현한 TCP 연결</span></div>
+      <div class="capture-guide">
+        <div><strong>Wireshark 확인</strong><span>루프백 인터페이스 · TCP 3-way handshake</span></div>
+        <code id="capture-filter">tcp.port == 9090</code>
+        <p id="capture-note">위 포트로 진단할 때 Wireshark에서 SYN → SYN/ACK → ACK를 확인할 수 있습니다. 실제 캡처 전에는 검증 완료로 표시하지 않습니다.</p>
+      </div>
     </section>
   </main>
   <script src="/app.js"></script>
