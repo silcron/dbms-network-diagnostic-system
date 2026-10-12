@@ -42,7 +42,10 @@ def recv_exact(sock: socket.socket, size: int, deadline: float | None = None) ->
             if seconds_left <= 0:
                 raise TimeoutError("Protocol frame receive deadline exceeded.")
             sock.settimeout(seconds_left)
-        chunk = sock.recv(remaining)
+        try:
+            chunk = sock.recv(remaining)
+        except socket.timeout as exc:
+            raise TimeoutError("Protocol receive timed out.") from exc
         if not chunk:
             raise ConnectionError("Peer closed the connection.")
         chunks.append(chunk)
@@ -120,7 +123,10 @@ def send_message(
             if seconds_left <= 0:
                 raise TimeoutError("Protocol frame send deadline exceeded.")
             sock.settimeout(seconds_left)
-            sent = sock.send(remaining)
+            try:
+                sent = sock.send(remaining)
+            except socket.timeout as exc:
+                raise TimeoutError("Protocol send timed out.") from exc
             if sent == 0:
                 raise ConnectionError("Peer closed the connection during send.")
             remaining = remaining[sent:]

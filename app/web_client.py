@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import socket
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -68,7 +69,7 @@ class WebClientHandler(BaseHTTPRequestHandler):
             if observation.mode != request.mode:
                 raise ProtocolError("Diagnostic result mode does not match the request.")
             encoded_response = encode_json_object(response)
-        except TimeoutError:
+        except (socket.timeout, TimeoutError):
             metrics.observe_request(request.mode, "upstream_timeout")
             self._send_failure(
                 HTTPStatus.GATEWAY_TIMEOUT,
@@ -132,7 +133,7 @@ class WebClientHandler(BaseHTTPRequestHandler):
                     raise HttpInputError("invalid_request", "request body was truncated")
                 chunks.append(chunk)
                 remaining -= len(chunk)
-        except TimeoutError as exc:
+        except (socket.timeout, TimeoutError) as exc:
             raise HttpInputError("invalid_request", "request body deadline exceeded") from exc
         finally:
             self.connection.settimeout(original_timeout)
