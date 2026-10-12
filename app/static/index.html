@@ -46,27 +46,10 @@
       </div>
     </section>
 
-    <section class="panel route" id="route" aria-labelledby="route-title">
-      <div class="section-heading">
-        <div><p class="section-kicker">02 / COMMUNICATION PATH</p><h2 id="route-title">클라이언트–서버 통신 경로</h2></div>
-        <span class="section-aside">요청 → 진단 → 결과 반환</span>
-      </div>
-      <div class="route-flow">
-        <div class="route-node"><span class="node-index">01</span><span class="node-icon" aria-hidden="true">▣</span><strong>브라우저</strong><small>사용자 조작 · HTTP</small></div>
-        <span class="route-arrow" aria-hidden="true"><span></span></span>
-        <div class="route-node route-primary"><span class="node-index">02</span><span class="node-icon" aria-hidden="true">↗</span><strong>웹 클라이언트</strong><small>TCP 진단 요청 발신</small></div>
-        <span class="route-arrow" aria-hidden="true"><span></span></span>
-        <div class="route-node route-primary"><span class="node-index">03</span><span class="node-icon" aria-hidden="true">◎</span><strong>진단 서버</strong><small id="tcp-port-label">TCP 9090 · 세션 확인</small></div>
-        <span class="route-arrow" aria-hidden="true"><span></span></span>
-        <div class="route-node"><span class="node-index">04</span><span class="node-icon" aria-hidden="true">▤</span><strong id="path-target">MariaDB</strong><small id="path-action">접속 · 로그인 · SELECT 1</small></div>
-      </div>
-      <div class="route-footer"><span class="route-key"><i></i> 직접 구현한 TCP 통신</span><p>웹 클라이언트 ↔ 진단 서버 구간에서 실제 TCP 연결과 요청·응답이 오갑니다.</p></div>
-    </section>
-
     <div id="notice" class="notice" role="status" aria-live="polite"><span class="notice-icon" aria-hidden="true"></span><span class="notice-text">실제 MariaDB 상태를 확인할 준비가 되었습니다.</span></div>
 
     <section id="result" class="result hidden" aria-labelledby="result-title" aria-live="polite">
-      <div class="section-heading result-heading"><div><p class="section-kicker">03 / DIAGNOSTIC REPORT</p><h2 id="result-title">진단 결과</h2></div><span class="result-stamp">LATEST RESULT</span></div>
+      <div class="section-heading result-heading"><div><p class="section-kicker">02 / DIAGNOSTIC REPORT</p><h2 id="result-title">진단 결과</h2></div><span class="result-stamp">LATEST RESULT</span></div>
       <div class="summary">
         <div class="summary-status"><span>진단 상태</span><strong id="status">-</strong><small>서버가 반환한 상태</small></div>
         <div><span>실행 모드</span><strong id="mode">-</strong><small>실제 진단 / 모의 시연</small></div>
@@ -82,6 +65,22 @@
         <ol id="osi"></ol>
         <p class="trace-note">5·6계층은 이 프로그램의 세션 관리·데이터 표현 기능에 대응합니다. 한 PC의 루프백 시연에서 1·2계층은 물리 케이블이나 Wi-Fi 전송을 뜻하지 않습니다.</p>
       </section>
+    </section>
+    <section class="panel route" id="route" aria-labelledby="route-title">
+      <div class="section-heading">
+        <div><p class="section-kicker">03 / COMMUNICATION PATH</p><h2 id="route-title">클라이언트–서버 통신 경로</h2></div>
+        <span class="section-aside">요청 → 진단 → 결과 반환</span>
+      </div>
+      <div class="route-flow">
+        <div class="route-node"><span class="node-index">01</span><span class="node-icon" aria-hidden="true">▣</span><strong>브라우저</strong><small>사용자 조작 · HTTP</small></div>
+        <span class="route-arrow" aria-hidden="true"><span></span></span>
+        <div class="route-node route-primary"><span class="node-index">02</span><span class="node-icon" aria-hidden="true">↗</span><strong>웹 클라이언트</strong><small>TCP 진단 요청 발신</small></div>
+        <span class="route-arrow" aria-hidden="true"><span></span></span>
+        <div class="route-node route-primary"><span class="node-index">03</span><span class="node-icon" aria-hidden="true">◎</span><strong>진단 서버</strong><small id="tcp-port-label">TCP 9090 · 세션 확인</small></div>
+        <span class="route-arrow" aria-hidden="true"><span></span></span>
+        <div class="route-node"><span class="node-index">04</span><span class="node-icon" aria-hidden="true">▤</span><strong id="path-target">MariaDB</strong><small id="path-action">접속 · 로그인 · SELECT 1</small></div>
+      </div>
+      <div class="route-footer"><span class="route-key"><i></i> 직접 구현한 TCP 통신</span><p>웹 클라이언트 ↔ 진단 서버 구간에서 실제 TCP 연결과 요청·응답이 오갑니다.</p></div>
     </section>
     <footer><span>DBMS NETWORK DIAGNOSTIC SYSTEM</span><span>LOCAL · CLIENT / SERVER</span></footer>
   </main>
