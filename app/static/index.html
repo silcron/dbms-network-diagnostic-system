@@ -40,7 +40,18 @@
     <div id="notice" class="notice is-ready" role="status" aria-live="polite"><span class="notice-icon" aria-hidden="true"></span><span class="notice-text">실제 MariaDB 상태를 확인할 준비가 되었습니다.</span></div>
 
     <section id="result" class="result hidden" aria-labelledby="result-title" aria-live="polite">
-      <div class="section-heading result-heading"><h2 id="result-title">진단 결과</h2></div>
+      <div class="section-heading result-heading">
+        <h2 id="result-title">진단 결과</h2>
+        <div id="result-activity" class="result-activity" role="status">
+          <span class="result-spinner" aria-hidden="true"></span>
+          <span id="result-activity-label">진단 완료</span>
+        </div>
+      </div>
+      <div id="result-wait" class="result-wait hidden">
+        <strong>연결 경로 확인 중</strong>
+        <span>TCP 연결 → 세션 확인 → DBMS 진단</span>
+      </div>
+      <div id="result-body">
       <div class="summary">
         <div class="summary-status"><span>진단 상태</span><strong id="status">-</strong></div>
         <div><span id="mode-label">실행 모드</span><strong id="mode">-</strong></div>
@@ -63,6 +74,7 @@
         <ol id="osi"></ol>
         <p class="trace-note">로컬 루프백에서는 1·2계층에 실제 케이블·Wi‑Fi 전송이 없습니다. 5·6계층은 프로그램의 세션·데이터 표현 기능에 대응합니다.</p>
       </section>
+      </div>
     </section>
     <section class="panel route" id="route" aria-labelledby="route-title">
       <div class="section-heading">

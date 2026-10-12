@@ -10,6 +10,8 @@ const route = document.querySelector('#route');
 const trace = document.querySelector('#osi');
 const traceState = document.querySelector('#trace-state');
 const traceNote = document.querySelector('.trace-note');
+const resultWait = document.querySelector('#result-wait');
+const resultBody = document.querySelector('#result-body');
 const buttonLabel = button.querySelector('.button-label');
 let usingTemporaryDemoPort = false;
 
@@ -27,6 +29,12 @@ function localTime() {
 }
 function capturePort() {
   setText('#capture-filter', `tcp.port == ${portInput.value || '9090'}`);
+}
+function setResultActivity(state, label) {
+  result.dataset.activity = state;
+  setText('#result-activity-label', label);
+  resultWait.classList.toggle('hidden', state !== 'running');
+  resultBody.classList.toggle('hidden', state === 'running');
 }
 class DiagnosisError extends Error {
   constructor(code, details = {}) {
@@ -187,6 +195,7 @@ function renderDatabaseResult(data) {
   else if (isDuration(db.database_rtt_ms)) timings.push(`${simulated}DB 진단 전체 ${db.database_rtt_ms} ms`);
   setText('#dbtiming', timings.join(' · '));
   result.dataset.status = db.status.toLowerCase();
+  setResultActivity(db.status.toLowerCase(), db.status === 'NORMAL' ? '진단 완료' : db.status === 'WARNING' ? '주의 확인' : '이상 감지');
   result.classList.remove('hidden');
   route.classList.add('is-complete');
   route.classList.toggle('is-db-error', db.status === 'DOWN');
@@ -211,6 +220,7 @@ function renderFailure(error, requestedMode, target) {
   setText('#next-check', guide.next);
   setText('#dbtiming', '');
   result.dataset.status = invalid ? 'invalid' : 'error';
+  setResultActivity(invalid ? 'invalid' : 'error', invalid ? '입력 확인' : '진단 실패');
   result.classList.remove('hidden');
   route.classList.toggle('is-error', !invalid);
   showUnavailableTrace(invalid
@@ -296,7 +306,9 @@ button.addEventListener('click', async () => {
   route.classList.remove('is-complete', 'is-error', 'is-db-error');
   route.classList.add('is-running');
   result.classList.remove('is-stale');
-  result.classList.add('hidden');
+  result.dataset.status = 'running';
+  result.classList.remove('hidden');
+  setResultActivity('running', '진단 실행 중');
   const requestedMode = selectedMode();
   setNotice('TCP 서버에 연결하고 DBMS 상태를 확인하는 중입니다…', 'running');
   let target = `${hostInput.value.trim()}:${portInput.value.trim()}`;
