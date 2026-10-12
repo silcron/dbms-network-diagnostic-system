@@ -23,6 +23,29 @@ HTTP_BODY_DEADLINE_SECONDS: Final = 2.0
 _METRICS_INIT_LOCK: Final = Lock()
 
 
+class DiagnosticTransportFailure(Exception):
+    """Keep the observed TCP phase without exposing raw exception text to HTTP."""
+
+    def __init__(self, phase: str, cause: OSError | ProtocolError) -> None:
+        self.phase = phase
+        self.cause = cause
+        super().__init__(phase)
+
+
+def _transport_reason(error: OSError | ProtocolError) -> str:
+    if isinstance(error, socket.gaierror):
+        return "name_resolution"
+    if isinstance(error, ConnectionRefusedError):
+        return "connection_refused"
+    if isinstance(error, (socket.timeout, TimeoutError)):
+        return "timeout"
+    if isinstance(error, ConnectionResetError):
+        return "connection_reset"
+    if isinstance(error, ProtocolError):
+        return "protocol_error"
+    return "network_error"
+
+
 class DiagnosticWebServer(ThreadingHTTPServer):
     request_queue_size = 32
 
@@ -69,6 +92,19 @@ class WebClientHandler(BaseHTTPRequestHandler):
             if observation.mode != request.mode:
                 raise ProtocolError("Diagnostic result mode does not match the request.")
             encoded_response = encode_json_object(response)
+        except DiagnosticTransportFailure as exc:
+            reason = _transport_reason(exc.cause)
+            timeout = reason == "timeout"
+            metrics.observe_request(request.mode, "upstream_timeout" if timeout else "upstream_failure")
+            self._send_failure(
+                HTTPStatus.GATEWAY_TIMEOUT if timeout else HTTPStatus.BAD_GATEWAY,
+                "upstream_timeout" if timeout else "upstream_failure",
+                "diagnostic server timed out" if timeout else "diagnostic server communication failed",
+                reason_code=reason,
+                phase=exc.phase,
+                system_errno=exc.cause.errno if isinstance(exc.cause, OSError) else None,
+            )
+            return
         except (socket.timeout, TimeoutError):
             metrics.observe_request(request.mode, "upstream_timeout")
             self._send_failure(
@@ -162,8 +198,14 @@ class WebClientHandler(BaseHTTPRequestHandler):
     def _diagnose(request: DiagnosticRequest) -> JsonObject:
         client = DiagnosticClient(request.host, request.port)
         try:
-            hello: JsonObject = client.connect()
-            diagnosis: JsonObject = client.diagnose(request.demo_scenario, request.mode)
+            try:
+                hello: JsonObject = client.connect()
+            except (OSError, ProtocolError) as exc:
+                raise DiagnosticTransportFailure("connect", exc) from exc
+            try:
+                diagnosis: JsonObject = client.diagnose(request.demo_scenario, request.mode)
+            except (OSError, ProtocolError) as exc:
+                raise DiagnosticTransportFailure("diagnose", exc) from exc
             if diagnosis.get("type") != "diagnostic_result":
                 raise ProtocolError("Diagnostic server returned an invalid response type.")
             session_message = hello.get("message")
@@ -203,8 +245,18 @@ class WebClientHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def _send_failure(self, status: HTTPStatus, code: str, message: str) -> None:
-        self._send_json(status, {"code": code, "message": message, "error": message})
+    def _send_failure(
+        self, status: HTTPStatus, code: str, message: str, *,
+        reason_code: str | None = None, phase: str | None = None, system_errno: int | None = None,
+    ) -> None:
+        payload: JsonObject = {"code": code, "message": message, "error": message}
+        if reason_code is not None:
+            payload["reason_code"] = reason_code
+        if phase is not None:
+            payload["phase"] = phase
+        if system_errno is not None:
+            payload["system_errno"] = system_errno
+        self._send_json(status, payload)
 
     def _send_json(self, status: HTTPStatus, payload: JsonObject) -> None:
         self._send_json_bytes(status, encode_json_object(payload))

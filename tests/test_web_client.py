@@ -18,6 +18,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from unittest.mock import patch
 
+from app.client_core import DiagnosticClient
 from app.protocol import ProtocolError
 from app.server import DiagnosticHandler, DiagnosticServer
 from app.web_client import WebClientHandler
@@ -209,6 +210,28 @@ class WebClientIntegrationTests(unittest.TestCase):
             self.assertIn("error", data)
             self.assertNotIn("secret", json.dumps(data))
 
+    def test_tcp_connect_failures_return_observed_reason_without_raw_error(self) -> None:
+        cases = (
+            (ConnectionRefusedError(10061, "secret"), 502, "connection_refused"),
+            (socket.gaierror(11001, "secret"), 502, "name_resolution"),
+            (TimeoutError(10060, "secret"), 504, "timeout"),
+        )
+        for failure, expected_status, reason in cases:
+            with self.subTest(reason=reason), patch.object(DiagnosticClient, "connect", side_effect=failure):
+                status_code, data = self.post("demo")
+            self.assertEqual(status_code, expected_status)
+            self.assertEqual(data["reason_code"], reason)
+            self.assertEqual(data["phase"], "connect")
+            self.assertNotIn("secret", json.dumps(data))
+
+    def test_diagnose_protocol_failure_identifies_stage(self) -> None:
+        with patch.object(DiagnosticClient, "diagnose", side_effect=ProtocolError("secret")):
+            status_code, data = self.post("demo")
+        self.assertEqual(status_code, 502)
+        self.assertEqual(data["reason_code"], "protocol_error")
+        self.assertEqual(data["phase"], "diagnose")
+        self.assertNotIn("secret", json.dumps(data))
+
     def test_nonfinite_upstream_payload_is_a_safe_protocol_failure(self) -> None:
         # Given: an upstream response that cannot be represented as valid JSON.
         invalid_response = {
@@ -257,6 +280,11 @@ class WebClientIntegrationTests(unittest.TestCase):
         self.assertIn("웹 클라이언트", page)
         self.assertIn("진단 서버", page)
         self.assertIn("TCP 연결", page)
+        self.assertIn("Wireshark 확인", page)
+        self.assertIn("1–4계층 중점", page)
+        self.assertIn('id="evidence"', page)
+        self.assertIn('id="next-check"', page)
+        self.assertIn("<h1>DBMS 네트워크 접속 진단</h1>", page)
 
 
 class WebRequestBodyLimitTests(unittest.TestCase):

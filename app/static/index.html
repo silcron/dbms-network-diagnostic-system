@@ -3,71 +3,86 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f8fb">
   <title>DBMS 네트워크 접속 진단 통신 시스템</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <main>
-    <header>
-      <p class="eyebrow">TCP CLIENT · SERVER · DBMS</p>
-      <h1>DBMS 네트워크 접속 진단</h1>
-      <p class="subtitle">TCP 요청·응답과 OSI 7계층의 역할을 함께 확인합니다.</p>
-    </header>
+  <main class="workspace">
+    <div class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>DBMS / NETWORK</span></div>
+    </div>
 
-    <section class="connection" aria-label="서버 연결 설정">
-      <label>서버 주소 <input id="host" value="127.0.0.1" spellcheck="false"></label>
-      <label>포트 <input id="port" value="9090" inputmode="numeric"></label>
-      <fieldset class="mode-choice">
-        <legend>진단 방식</legend>
-        <label><input type="radio" name="mode" value="live" checked> LIVE · 실제 진단</label>
-        <label><input type="radio" name="mode" value="demo"> DEMO · 모의 시연</label>
-      </fieldset>
-      <label>모의 상황 (DEMO 전용)
-        <select id="scenario">
-          <option value="normal">정상 연결</option>
-          <option value="warning">응답 지연 경고</option>
-          <option value="down">DBMS 접속 실패</option>
-        </select>
-      </label>
-      <button id="diagnose">DBMS 진단 시작</button>
-    </section>
+    <header class="hero"><h1>DBMS 네트워크 접속 진단</h1></header>
 
-    <p id="mode-help" class="mode-help">LIVE는 실제 MariaDB에 연결·로그인하고 SELECT 1을 실행합니다.</p>
-
-    <p id="notice" class="notice">서버 주소와 포트를 확인한 뒤 진단을 시작하세요.</p>
-
-    <section class="route" aria-label="클라이언트 서버 통신 경로">
-      <h2>통신 경로</h2>
-      <div class="route-flow">
-        <div class="route-node"><strong>브라우저 화면</strong><small>사용자 조작 · HTTP</small></div>
-        <span class="route-arrow" aria-hidden="true">→</span>
-        <div class="route-node route-primary"><strong>웹 클라이언트</strong><small>진단 요청 · TCP 발신</small></div>
-        <span class="route-arrow" aria-hidden="true">→</span>
-        <div class="route-node route-primary"><strong>진단 서버</strong><small id="tcp-port-label">TCP 9090 · 세션 확인</small></div>
-        <span class="route-arrow" aria-hidden="true">→</span>
-        <div class="route-node"><strong id="path-target">MariaDB</strong><small id="path-action">접속 · 로그인 · SELECT 1</small></div>
+    <section class="panel connection" aria-labelledby="config-title">
+      <div class="section-heading">
+        <h2 id="config-title">진단 설정</h2>
       </div>
-      <p class="route-caption">과제의 클라이언트–서버 통신은 <strong>웹 클라이언트 ↔ 진단 서버</strong> 사이의 TCP 연결입니다.</p>
+      <div class="connection-grid">
+        <label class="field">서버 주소 <input id="host" value="127.0.0.1" spellcheck="false" autocomplete="off"></label>
+        <label class="field field-port">포트 <input id="port" value="9090" inputmode="numeric" autocomplete="off"></label>
+        <fieldset class="mode-choice">
+          <legend>진단 방식</legend>
+          <div class="mode-options">
+            <label><input type="radio" name="mode" value="live" checked><span class="mode-indicator" aria-hidden="true"></span><span><strong>LIVE</strong><small>실제 MariaDB 진단</small></span></label>
+            <label><input type="radio" name="mode" value="demo"><span class="mode-indicator" aria-hidden="true"></span><span><strong>DEMO</strong><small>모의 상황 시연</small></span></label>
+          </div>
+        </fieldset>
+        <label class="field field-scenario">모의 상황 <select id="scenario"><option value="normal">정상 연결</option><option value="warning">응답 지연 경고</option><option value="down">DBMS 접속 실패</option></select></label>
+      </div>
+      <div class="action-row">
+        <p id="mode-help" class="mode-help">LIVE는 실제 MariaDB에 연결·로그인하고 SELECT 1을 실행합니다.</p>
+        <button id="diagnose" type="button"><span class="button-label">진단 시작</span><span class="button-arrow" aria-hidden="true">↗</span></button>
+      </div>
     </section>
 
-    <section id="result" class="hidden" aria-live="polite">
+    <div id="notice" class="notice is-ready" role="status" aria-live="polite"><span class="notice-icon" aria-hidden="true"></span><span class="notice-text">실제 MariaDB 상태를 확인할 준비가 되었습니다.</span></div>
+
+    <section id="result" class="result hidden" aria-labelledby="result-title" aria-live="polite">
+      <div class="section-heading result-heading"><h2 id="result-title">진단 결과</h2></div>
       <div class="summary">
-        <div><span>진단 상태</span><strong id="status">-</strong></div>
-        <div><span>실행 모드</span><strong id="mode">-</strong></div>
-        <div><span>클라이언트 RTT</span><strong id="rtt">-</strong></div>
-        <div><span>확인 시각</span><strong id="checked">-</strong></div>
+        <div class="summary-status"><span>진단 상태</span><strong id="status">-</strong></div>
+        <div><span id="mode-label">실행 모드</span><strong id="mode">-</strong></div>
+        <div><span>클라이언트 왕복 시간</span><strong id="rtt">-</strong></div>
+        <div><span id="checked-label">확인 시각</span><strong id="checked">-</strong></div>
       </div>
-      <section class="detail">
-        <h2>DBMS 진단 결과</h2>
-        <p id="database"></p>
-        <p id="detail"></p>
+      <section class="detail panel" aria-labelledby="detail-title">
+        <h3 id="detail-title">결과 해석</h3>
+        <p id="database" class="database-name"></p>
+        <p id="detail" class="verdict"></p>
+        <div class="reason-grid">
+          <div><span>확인된 근거</span><p id="evidence"></p></div>
+          <div><span>다음 점검</span><p id="next-check"></p></div>
+        </div>
         <p id="dbtiming" class="timing"></p>
       </section>
-      <section class="trace">
-        <h2>OSI 7계층 통신 추적</h2>
+      <section class="trace panel" aria-labelledby="trace-title">
+        <div class="section-heading"><h3 id="trace-title">OSI 7계층 적용</h3><span class="trace-focus-key">1–4계층 중점</span></div>
+        <p id="trace-state" class="trace-state hidden"></p>
         <ol id="osi"></ol>
-        <p class="trace-note">5·6계층은 별도 표준 프로토콜이 아니라 이 프로그램의 세션 관리·데이터 표현 기능에 대응시킨 것입니다. 로컬 루프백에서는 실제 이더넷 프레임이나 물리 신호가 오가지 않습니다.</p>
+        <p class="trace-note">로컬 루프백에서는 1·2계층에 실제 케이블·Wi‑Fi 전송이 없습니다. 5·6계층은 프로그램의 세션·데이터 표현 기능에 대응합니다.</p>
       </section>
+    </section>
+    <section class="panel route" id="route" aria-labelledby="route-title">
+      <div class="section-heading">
+        <h2 id="route-title">클라이언트–서버 통신 경로</h2>
+      </div>
+      <div class="route-flow">
+        <div class="route-node"><span class="node-index">01</span><span class="node-icon" aria-hidden="true">▣</span><strong>브라우저</strong><small>사용자 조작 · HTTP</small></div>
+        <span class="route-arrow" aria-hidden="true"><span></span></span>
+        <div class="route-node route-primary"><span class="node-index">02</span><span class="node-icon" aria-hidden="true">↗</span><strong>웹 클라이언트</strong><small>TCP 진단 요청 발신</small></div>
+        <span class="route-arrow" aria-hidden="true"><span></span></span>
+        <div class="route-node route-primary"><span class="node-index">03</span><span class="node-icon" aria-hidden="true">◎</span><strong>진단 서버</strong><small id="tcp-port-label">TCP 9090 · 세션 확인</small></div>
+        <span class="route-arrow" aria-hidden="true"><span></span></span>
+        <div class="route-node"><span class="node-index">04</span><span class="node-icon" aria-hidden="true">▤</span><strong id="path-target">MariaDB</strong><small id="path-action">접속 · 로그인 · SELECT 1</small></div>
+      </div>
+      <div class="route-footer"><span class="route-key"><i></i> 웹 클라이언트 ↔ 진단 서버: 직접 구현한 TCP 연결</span></div>
+      <div class="capture-guide">
+        <div><strong>Wireshark 확인</strong><span>루프백 인터페이스 · TCP 3-way handshake</span></div>
+        <code id="capture-filter">tcp.port == 9090</code>
+        <p id="capture-note">위 포트로 진단할 때 Wireshark에서 SYN → SYN/ACK → ACK를 확인할 수 있습니다. 실제 캡처 전에는 검증 완료로 표시하지 않습니다.</p>
+      </div>
     </section>
   </main>
   <script src="/app.js"></script>
