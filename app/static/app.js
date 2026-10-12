@@ -16,8 +16,9 @@ function formatCheckedAt(value) {
   const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2})/);
   return match ? `${match[1]}.${match[2]}.${match[3]} ${match[4]}` : value;
 }
-function setNotice(message, state = 'ready') {
+function setNotice(message, state = 'success') {
   notice.querySelector('.notice-text').textContent = message;
+  notice.classList.toggle('is-ready', state === 'ready');
   notice.classList.toggle('is-running', state === 'running');
   notice.classList.toggle('is-error', state === 'error');
   notice.classList.toggle('is-stale', state === 'stale');
