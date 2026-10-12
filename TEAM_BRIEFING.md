@@ -168,7 +168,7 @@ python -B -m scripts.check_presentation_demo --demo-only --host 127.0.0.1 --demo
 ### 학교 PC 사전 점검
 
 - [ ] GitHub 저장소 clone 또는 USB로 소스 폴더 복사
-- [ ] Python 설치 여부 확인
+- [ ] Python 3.14.3 이상 설치 및 `python --version` 확인 (`.venv` 사용 시 해당 환경의 버전도 확인)
 - [ ] `pip install -r requirements.txt` 실행
 - [ ] TCP 서버와 웹 클라이언트 실행
 - [ ] 브라우저에서 `http://127.0.0.1:8080` 접속
@@ -224,7 +224,7 @@ LIVE 모드는 실제 MariaDB 설치, PyMySQL, 실행 권한이 필요합니다.
 
 ### 현재 PC의 실행 근거와 남은 확인
 
-2026-10-12 현재 PC에서 실제 MariaDB 로그인·`SELECT 1`의 TCP/HTTP `LIVE NORMAL`, DEMO 정상·지연·실패, 기존 DEMO/LIVE 캡처의 TShark 판독을 확인했습니다. CPython 3.9.25와 3.14.3은 각각 전체 118개 검사가 건너뜀 없이 통과했습니다. 실제 Toxiproxy에서도 진단 서버·DB 양쪽의 지연, timeout, reset, 분할 전송과 복구·소유 자원 정리를 확인했습니다. 이 결과는 현재 PC의 증거이며 팀원·학교 PC의 실행 완료를 뜻하지 않습니다.
+2026-10-12 현재 PC에서 실제 MariaDB 로그인·`SELECT 1`의 TCP/HTTP `LIVE NORMAL`, DEMO 정상·지연·실패, 기존 DEMO/LIVE 캡처의 TShark 판독을 확인했습니다. CPython 3.9.25와 3.14.3은 각각 전체 118개 검사가 건너뜀 없이 통과했습니다. 3.9.25 결과는 이전 호환성 점검 기록이며, 현재 실행 기준은 Python 3.14.3 이상이고 이후 검증은 3.14.3을 기준으로 진행합니다. 실제 Toxiproxy에서도 진단 서버·DB 양쪽의 지연, timeout, reset, 분할 전송과 복구·소유 자원 정리를 확인했습니다. 이 결과는 현재 PC의 증거이며 팀원·학교 PC의 실행 완료를 뜻하지 않습니다.
 
 - [ ] 작성자별 학번·성명과 실제 수행 내용을 채우기
 - [ ] 구성도 및 본인이 실행한 화면을 Ⅱ·Ⅲ에 배치하기

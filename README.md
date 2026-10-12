@@ -30,7 +30,9 @@ Tkinter Client ── TCP / JSON ── Python Server ── PyMySQL (선택) �
 
 ## 실행
 
-Python 3.9 이상을 PATH에 추가한 뒤 PowerShell 창 두 개를 열어 아래 순서로 실행합니다.
+실행 기준은 현재 로컬 버전인 **Python 3.14.3 이상**입니다. 현재 검증한 버전은 3.14.3이며, 팀원·학교 PC도 이 기준으로 준비합니다. 하위 버전 호환성을 계속 검증하지 않습니다.
+
+PowerShell에서 `python --version`으로 사용할 버전을 확인한 뒤 창 두 개를 열어 아래 순서로 실행합니다. `.venv`를 사용할 때도 Python 3.14.3 이상으로 생성하고, `.\.venv\Scripts\python.exe --version`으로 확인합니다. 가상환경 활성화 후 아래 명령을 실행하면 됩니다.
 
 ```powershell
 # 1. 서버
