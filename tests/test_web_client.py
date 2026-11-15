@@ -6,6 +6,7 @@ import json
 import math
 import os
 import socket
+import sys
 import threading
 import time
 import unittest
@@ -16,7 +17,8 @@ from http.server import ThreadingHTTPServer
 from io import BytesIO
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 from app.client_core import DiagnosticClient
 from app.protocol import ProtocolError
@@ -82,6 +84,56 @@ class WebClientIntegrationTests(unittest.TestCase):
         self.assertEqual(data["result"]["mode"], "LIVE")
         self.assertEqual(data["result"]["status"], "WARNING")
         self.assertIn("DB_HOST", data["result"]["detail"])
+
+    def test_three_live_targets_overlap_and_return_independent_results(self) -> None:
+        ready = threading.Barrier(3, timeout=1.5)
+        settings = {"DB_WARNING_MS": "10000", "DB4_HOST": "unused"}
+        for slot, prefix in enumerate(("DB_", "DB2_", "DB3_"), 1):
+            settings.update({prefix + "HOST": "localhost", prefix + "PORT": str(3306 + slot),
+                             prefix + "USER": f"user{slot}", prefix + "PASSWORD": f"secret{slot}"})
+        connection = MagicMock()
+        cursor = connection.cursor.return_value.__enter__.return_value
+        cursor.fetchone.return_value = (1,)
+
+        def connect(*, port: int, user: str, password: str, **kwargs: object) -> MagicMock:
+            ready.wait()
+            slot = port - 3306
+            self.assertEqual((user, password), (f"user{slot}", f"secret{slot}"))
+            if slot == 2:
+                raise RuntimeError(1045, "secret2")
+            if slot == 3:
+                raise ConnectionRefusedError("secret3")
+            return connection
+
+        with patch.dict(os.environ, settings, clear=True), patch.dict(sys.modules, {"pymysql": SimpleNamespace(connect=connect)}):
+            status, data = self.post("live")
+
+        self.assertEqual(status, 200)
+        self.assertEqual([(db["target_id"], db["status"]) for db in data["results"]],
+                         [(1, "NORMAL"), (2, "WARNING"), (3, "DOWN")])
+        self.assertEqual(data["result"], data["results"][2])
+        self.assertIn("우선 점검: DB 3", data["feedback_summary"])
+        self.assertIn("DB2_USER", data["results"][1]["next_check"])
+        self.assertIn("주소·포트", data["result"]["next_check"])
+        self.assertNotIn("secret", json.dumps(data))
+        cursor.execute.assert_called_once_with("SELECT 1")
+        connection.close.assert_called_once()
+
+    def test_live_preserves_sparse_slot_and_isolates_invalid_configuration(self) -> None:
+        settings = {"DB2_HOST": "localhost", "DB2_PORT": "invalid", "DB3_HOST": "localhost"}
+        with patch.dict(os.environ, settings, clear=True), patch.dict(sys.modules, {"pymysql": None}):
+            status, data = self.post("live")
+        self.assertEqual(status, 200)
+        self.assertEqual([(db["target_id"], db["error_kind"]) for db in data["results"]],
+                         [(2, "config"), (3, "dependency")])
+        self.assertIn("DB2_PORT", data["results"][0]["detail"])
+
+    def test_mixed_demo_returns_three_simulated_results(self) -> None:
+        with patch.dict(os.environ, {"DB_HOST": "unreachable"}, clear=True):
+            status, data = self.post("demo", "mixed")
+        self.assertEqual(status, 200)
+        self.assertEqual([(db["mode"], db["status"]) for db in data["results"]],
+                         [("DEMO", "NORMAL"), ("DEMO", "WARNING"), ("DEMO", "DOWN")])
 
     def test_invalid_mode_is_rejected(self) -> None:
         status_code, data = self.post("invalid")

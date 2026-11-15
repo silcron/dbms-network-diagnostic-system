@@ -1,3 +1,5 @@
+> 이전 설계·실험 기록입니다. 현재 DB 3개 확장본은 [README](README.md), 최신 증빙은 [최종 실행 자료](evidence/final-20261114/)를 참고하세요.
+
 # DBMS Network Diagnostic System — Preserved Design Contract
 
 This contract records the existing interface before Task 3 presentation changes. It is extracted from `app/static/index.html`, `app/static/style.css`, and the baseline captures under `.omo/evidence/upstream-adoption/qa-setup-baseline/`. The approved direction is preservation: new diagnostic facts use the current result containers and do not introduce a new layout, palette, component style, or motion language.

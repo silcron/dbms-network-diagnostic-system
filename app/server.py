@@ -9,7 +9,8 @@ import time
 from threading import Lock
 from typing import Final
 
-from .diagnostics import build_osi_trace, probe_database, utc_now
+from .db_targets import diagnose_targets
+from .diagnostics import build_osi_trace, utc_now
 from .protocol import (
     DEFAULT_FRAME_TIMEOUT_SECONDS,
     DEFAULT_IDLE_TIMEOUT_SECONDS,
@@ -22,7 +23,7 @@ from .protocol import (
 )
 
 VALID_MODES: Final = frozenset({"auto", "live", "demo"})
-VALID_DEMO_SCENARIOS: Final = frozenset({"normal", "warning", "down"})
+VALID_DEMO_SCENARIOS: Final = frozenset({"normal", "warning", "down", "mixed"})
 
 
 class SessionStore:
@@ -132,10 +133,12 @@ class DiagnosticHandler(socketserver.BaseRequestHandler):
             if not isinstance(demo_scenario, str) or demo_scenario not in VALID_DEMO_SCENARIOS:
                 return self.error_response(
                     "invalid_scenario",
-                    "Demo scenario must be normal, warning, or down.",
+                    "Demo scenario must be normal, warning, down, or mixed.",
                 )
             started = time.perf_counter()
-            result = probe_database(demo_scenario, mode)
+            results = diagnose_targets(demo_scenario, mode)
+            # Older clients read a single result. Surface the most severe target.
+            result = max(results, key=lambda db: ("NORMAL", "WARNING", "DOWN").index(db["status"]))
             server_rtt = round((time.perf_counter() - started) * 1000, 2)
             server_ip, server_port = self.server.server_address
             return {
@@ -143,6 +146,7 @@ class DiagnosticHandler(socketserver.BaseRequestHandler):
                 "checked_at": utc_now(),
                 "server_processing_ms": server_rtt,
                 "result": result,
+                "results": results,
                 "osi_trace": build_osi_trace(peer_ip, str(server_ip), int(server_port), session_id),
             }
 

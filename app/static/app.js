@@ -10,8 +10,6 @@ const route = document.querySelector('#route');
 const trace = document.querySelector('#osi');
 const traceState = document.querySelector('#trace-state');
 const traceNote = document.querySelector('.trace-note');
-const resultWait = document.querySelector('#result-wait');
-const resultBody = document.querySelector('#result-body');
 const buttonLabel = button.querySelector('.button-label');
 let usingTemporaryDemoPort = false;
 
@@ -29,12 +27,6 @@ function localTime() {
 }
 function capturePort() {
   setText('#capture-filter', `tcp.port == ${portInput.value || '9090'}`);
-}
-function setResultActivity(state, label) {
-  result.dataset.activity = state;
-  setText('#result-activity-label', label);
-  resultWait.classList.toggle('hidden', state !== 'running');
-  resultBody.classList.toggle('hidden', state === 'running');
 }
 class DiagnosisError extends Error {
   constructor(code, details = {}) {
@@ -155,7 +147,7 @@ function showUnavailableTrace(message, error) {
 function nextDatabaseCheck(db) {
   if (db.mode === 'DEMO') return '실제 접속 상태가 필요한 경우 LIVE로 다시 진단하세요.';
   const checks = {
-    config:'진단 서버의 DB_HOST·DB_PORT 설정을 확인하세요.',
+    config:'진단 서버에서 이 DB의 접속 설정을 확인하세요.',
     dependency:'진단 서버의 DB 연결 모듈 설치 상태를 확인하세요.',
     network:'DB 주소·포트와 MariaDB 서비스 실행 상태를 확인하세요.',
     timeout:'MariaDB 응답과 네트워크 지연을 점검하세요.',
@@ -166,14 +158,8 @@ function nextDatabaseCheck(db) {
   };
   return checks[db.error_kind] || '필요하면 Wireshark에서 진단 서버의 TCP 연결을 확인하세요.';
 }
-function renderDatabaseResult(data) {
-  const db = data.result;
-  setText('#status', db.status);
-  setText('#mode', db.mode);
-  setText('#mode-label', '실행 모드');
-  setText('#rtt', `${data.client_rtt_ms} ms`);
-  setText('#checked', formatCheckedAt(data.checked_at));
-  setText('#checked-label', '확인 시각');
+function renderTargetDetail(db) {
+  setText('#detail-title', db.target_id ? `DB ${db.target_id} · 결과 해석` : '결과 해석');
   setText('#database', db.database);
   setText('#detail', db.detail);
   const simulated = db.mode === 'DEMO' ? '모의 ' : '';
@@ -187,15 +173,26 @@ function renderDatabaseResult(data) {
   if (Number.isInteger(db.db_errno) && db.db_errno >= 0) facts.push(`MariaDB 오류 번호 ${db.db_errno}`);
   if (db.mode === 'LIVE' && db.status === 'NORMAL') facts.push('DB 로그인·SELECT 1 성공');
   setText('#evidence', facts.join(' · '));
-  setText('#next-check', nextDatabaseCheck(db));
+  setText('#next-check', db.next_check || nextDatabaseCheck(db));
   const timings = [];
   if (isDuration(db.database_connect_ms)) timings.push(`${simulated}DB 연결·인증 ${db.database_connect_ms} ms`);
   if (isDuration(db.query_ms)) timings.push(`${simulated}SELECT 1 ${db.query_ms} ms`);
   if (isDuration(db.total_ms)) timings.push(`${simulated}진단 전체 ${db.total_ms} ms`);
   else if (isDuration(db.database_rtt_ms)) timings.push(`${simulated}DB 진단 전체 ${db.database_rtt_ms} ms`);
   setText('#dbtiming', timings.join(' · '));
+}
+function renderDatabaseResult(data) {
+  const db = data.result;
+  const targets = data.results || [db];
+  setText('#status-label', targets.length > 1 ? '전체 상태 · 가장 높은 심각도' : '진단 상태');
+  setText('#status', db.status);
+  setText('#mode', db.mode);
+  setText('#mode-label', '실행 모드');
+  setText('#rtt', `${data.client_rtt_ms} ms`);
+  setText('#checked', formatCheckedAt(data.checked_at));
+  setText('#checked-label', '확인 시각');
+  renderTargetChoices(targets, db, data.feedback_summary);
   result.dataset.status = db.status.toLowerCase();
-  setResultActivity(db.status.toLowerCase(), db.status === 'NORMAL' ? '진단 완료' : db.status === 'WARNING' ? '주의 확인' : '이상 감지');
   result.classList.remove('hidden');
   route.classList.add('is-complete');
   route.classList.toggle('is-db-error', db.status === 'DOWN');
@@ -206,6 +203,11 @@ function renderDatabaseResult(data) {
     : 'LIVE 진단 결과입니다. 판정 근거와 다음 점검 항목을 확인하세요.');
 }
 function renderFailure(error, requestedMode, target) {
+  document.querySelector('#targets-panel').hidden = true;
+  document.querySelector('#targets').replaceChildren();
+  setText('#feedback-summary', '');
+  setText('#detail-title', '결과 해석');
+  setText('#status-label', '진단 상태');
   const guide = failureGuide(error);
   const invalid = error.code === 'invalid_address' || error.code === 'invalid_port' || error.code === 'invalid_request';
   setText('#status', invalid ? '입력 오류' : '통신 실패');
@@ -220,7 +222,6 @@ function renderFailure(error, requestedMode, target) {
   setText('#next-check', guide.next);
   setText('#dbtiming', '');
   result.dataset.status = invalid ? 'invalid' : 'error';
-  setResultActivity(invalid ? 'invalid' : 'error', invalid ? '입력 확인' : '진단 실패');
   result.classList.remove('hidden');
   route.classList.toggle('is-error', !invalid);
   showUnavailableTrace(invalid
@@ -238,12 +239,12 @@ function updateMode() {
     usingTemporaryDemoPort = false;
   }
   scenario.disabled = !isDemo;
-  setText('#path-target', isDemo ? '모의 상태' : 'MariaDB');
+  setText('#path-target', isDemo ? '모의 상태' : 'MariaDB 최대 3개');
   setText('#path-action', isDemo ? '실제 DB 연결 없음' : '접속 · 로그인 · SELECT 1');
   setText('#tcp-port-label', `TCP ${portInput.value} · 세션 확인`);
   modeHelp.textContent = isDemo
     ? 'DEMO는 발표용 모의 결과입니다. 실제 MariaDB 연결 상태나 장애를 증명하지 않습니다.'
-    : 'LIVE는 실제 MariaDB에 연결·로그인하고 SELECT 1을 실행합니다.';
+    : 'MariaDB 최대 3개의 로그인과 쿼리 응답을 점검합니다.';
   const hasResult = !result.classList.contains('hidden');
   result.classList.toggle('is-stale', hasResult);
   route.classList.remove('is-complete', 'is-error', 'is-db-error');
@@ -273,7 +274,7 @@ async function requestDiagnosis(host, port, mode, demoScenario) {
   try {
     response = await fetch('/api/diagnose', {
       method: 'POST', headers: {'Content-Type':'application/json; charset=utf-8'},
-      body: JSON.stringify({host, port, mode, demo_scenario: demoScenario})
+      body: JSON.stringify({host, port, mode, demo_scenario: mode === 'demo' ? demoScenario : 'normal'})
     });
   } catch {
     throw new DiagnosisError('network_error', {target: `${host}:${port}`});
@@ -299,16 +300,22 @@ async function requestDiagnosis(host, port, mode, demoScenario) {
   return data;
 }
 
+function setSettingsBusy(busy) {
+  hostInput.disabled = busy;
+  portInput.disabled = busy;
+  modeChoices.forEach(choice => { choice.disabled = busy; });
+  scenario.disabled = busy || selectedMode() !== 'demo';
+}
+
 button.addEventListener('click', async () => {
   button.disabled = true;
+  setSettingsBusy(true);
   buttonLabel.textContent = '진단 중';
   button.setAttribute('aria-busy', 'true');
   route.classList.remove('is-complete', 'is-error', 'is-db-error');
   route.classList.add('is-running');
   result.classList.remove('is-stale');
-  result.dataset.status = 'running';
-  result.classList.remove('hidden');
-  setResultActivity('running', '진단 실행 중');
+  result.classList.add('hidden');
   const requestedMode = selectedMode();
   setNotice('TCP 서버에 연결하고 DBMS 상태를 확인하는 중입니다…', 'running');
   let target = `${hostInput.value.trim()}:${portInput.value.trim()}`;
@@ -335,6 +342,7 @@ button.addEventListener('click', async () => {
     renderFailure(failure, requestedMode, failure.details.target || target);
   } finally {
     route.classList.remove('is-running');
+    setSettingsBusy(false);
     button.disabled = false;
     buttonLabel.textContent = '진단 시작';
     button.removeAttribute('aria-busy');

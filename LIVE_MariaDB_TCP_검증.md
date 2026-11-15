@@ -1,3 +1,5 @@
+> 이전 설계·실험 기록입니다. 현재 DB 3개 확장본은 [README](README.md), 최신 증빙은 [최종 실행 자료](evidence/final-20261114/)를 참고하세요.
+
 # 실제 MariaDB 연동 및 TCP 캡처 검증
 
 캡처 파일: [live_mariadb_3307_20261005.pcapng](live_mariadb_3307_20261005.pcapng)  

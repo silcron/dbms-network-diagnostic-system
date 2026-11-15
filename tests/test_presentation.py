@@ -8,6 +8,16 @@ from scripts import check_presentation_demo
 
 
 class DiagnosticPresentationTests(unittest.TestCase):
+    def test_desktop_shows_actions_for_non_primary_targets(self) -> None:
+        base = {"mode": "LIVE", "database": "MariaDB", "detail": "점검 결과"}
+        auth = {**base, "target_id": 2, "status": "WARNING", "error_kind": "auth"}
+        down = {**base, "target_id": 3, "status": "DOWN", "error_kind": "network"}
+        lines = format_diagnostic_lines({"result": down, "results": [auth, down], "osi_trace": [], "client_rtt_ms": 1})
+        rendered = "\n".join(lines)
+        self.assertIn("우선 점검: DB 3", rendered)
+        self.assertIn("DB2_USER", rendered)
+        self.assertIn("주소·포트", rendered)
+
     def test_optional_live_diagnostic_fields_are_rendered(self) -> None:
         # Given: a LIVE result with the full additive diagnosis contract.
         response = {
@@ -96,16 +106,27 @@ class PresentationGateTests(unittest.TestCase):
         ) as check_tcp:
             check_presentation_demo.main()
 
-        # Then: only the three labelled DEMO outcomes are required.
-        self.assertEqual(check_tcp.call_count, 3)
+        # Then: the three single-DB scenarios and the mixed batch all run.
         self.assertEqual(
             [call.args[2:5] for call in check_tcp.call_args_list],
             [
                 ("demo", "normal", "NORMAL"),
                 ("demo", "warning", "WARNING"),
                 ("demo", "down", "DOWN"),
+                ("demo", "mixed", "DOWN"),
             ],
         )
+
+    def test_mixed_gate_rejects_single_down_masquerading_as_a_batch(self) -> None:
+        down = {"mode": "DEMO", "status": "DOWN", "target_id": 3, "scenario": "down"}
+        with patch.object(check_presentation_demo, "DiagnosticClient") as factory:
+            client = factory.return_value
+            client.diagnose.return_value = {
+                "type": "diagnostic_result", "result": down, "results": [down], "osi_trace": [{}] * 7,
+            }
+            with self.assertRaises(check_presentation_demo.PresentationCheckError):
+                check_presentation_demo.check_tcp("localhost", 9090, "demo", "mixed", "DOWN")
+            client.logout.assert_called_once()
 
 
 if __name__ == "__main__":

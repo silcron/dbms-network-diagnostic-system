@@ -9,3 +9,15 @@ logs/
 __pycache__/
 *.py[cod]
 .venv/
+
+# Local secrets, generated distributions and private working files
+.env
+.env.*
+!.env.example
+.local/
+venv/
+.pytest_cache/
+*.pem
+*.key
+*.p12
+*.pfx

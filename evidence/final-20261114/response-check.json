@@ -1,0 +1,32 @@
+{
+  "live": {
+    "stream": 0,
+    "frames": {
+      "hello": 4,
+      "hello_ok": 6,
+      "diagnose": 8,
+      "diagnostic_result": 104,
+      "logout": 106,
+      "logout_ok": 108
+    },
+    "hello_bytes": 20,
+    "result_bytes": 2403,
+    "checked_at": "2026-11-14T23:19:16+09:00",
+    "matched": true
+  },
+  "demo": {
+    "stream": 8,
+    "frames": {
+      "hello": 117,
+      "hello_ok": 119,
+      "diagnose": 121,
+      "diagnostic_result": 123,
+      "logout": 125,
+      "logout_ok": 127
+    },
+    "hello_bytes": 20,
+    "result_bytes": 2017,
+    "checked_at": "2026-11-14T23:19:17+09:00",
+    "matched": true
+  }
+}

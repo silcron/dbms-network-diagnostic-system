@@ -1,0 +1,21 @@
+최종 실행 증빙
+
+한 PC의 127.0.0.1에서 LIVE 진단을 한 번 실행하고 이어서 DEMO 혼합 상태를 실행했다. 캡처는 진단 TCP와 MariaDB 세 포트로 한정했다. 브라우저와 웹 서버 사이의 HTTP는 캡처 범위 밖이다.
+
+final-run.pcapng           Wireshark 원본, 132개 패킷
+Wireshark-handshake.jpg    같은 원본에서 1·2·3번을 필터링한 Wireshark 화면
+LIVE-DB1~3.png             같은 LIVE 응답에서 DB별 카드를 선택한 실제 화면
+DEMO-DB1~3.png             같은 DEMO 혼합 응답에서 DB별 카드를 선택한 실제 화면
+route.png                  최종 실행의 통신 경로 화면
+login-detail.png           최종 LIVE에서 선택한 DB 2의 로그인 오류 상세
+ports.json                 웹·진단·DB 포트 및 캡처 전 세 DB의 정상 확인 결과
+packets.tsv                원본에서 발췌한 패킷 번호·포트·스트림·플래그·순서 번호
+results.json               브라우저 요청의 LIVE·DEMO 결과, 오류 코드 및 시간
+response-check.json        원본 TCP 페이로드를 해석해 화면 결과와 대조한 기록
+
+Wireshark 표시 필터
+tcp.stream == 0 && frame.number <= 3     진단 연결의 SYN → SYN/ACK → ACK
+frame.number in {8,10,12,15,16,17,104}   LIVE 요청, DB 1 연결 성공, DB 3 첫 연결 거부, 결과 응답
+frame.number in {121,123}                DEMO 혼합 상태 요청과 결과 응답
+
+LIVE 전체 상태는 DOWN이다. DB 1은 로그인·SELECT 1 성공, DB 2는 인증 오류 1045, DB 3은 접속 오류 2003이었다. DB 2의 임시 계정 암호 변경과 DB 3 중지는 캡처 전에 수행했다. DEMO의 DB 2 경고는 모의 응답 지연이다.

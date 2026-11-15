@@ -104,6 +104,10 @@ class WebResponseBoundaryTests(unittest.TestCase):
 
         # Then: the complete older shape remains a successful response.
         self.assertEqual(status_code, 200)
+        result = self.result_object(data)
+        self.assertIn("모의", result.pop("finding"))
+        self.assertIn("LIVE", result.pop("next_check"))
+        # HTTP presentation fields are additive; all existing fields still pass through.
         self.assertEqual(data, legacy_response)
 
     def test_malformed_upstream_shapes_are_502_without_success_metrics(self) -> None:
@@ -168,6 +172,21 @@ class WebResponseBoundaryTests(unittest.TestCase):
         self.assertNotIn('outcome="success"', metrics)
         self.assertNotIn("dbms_diagnostic_results_total{", metrics)
         self.assertNotIn("dbms_diagnostic_last_success{", metrics)
+
+    def test_invalid_target_batches_are_rejected_before_success_is_recorded(self) -> None:
+        response = self.legacy_response()
+        primary = self.result_object(response)
+        primary["target_id"] = 1
+        second = {**primary, "target_id": 2}
+        for targets in (
+            [], [primary, primary], [primary, {**second, "mode": "LIVE"}],
+            [primary, {**second, "target_id": 4}], [primary, {**second, "status": "unknown"}],
+            [primary, second, {**second, "target_id": 3}, {**second, "target_id": 4}], [second],
+        ):
+            with self.subTest(targets=targets):
+                status, _ = self.post({**response, "results": targets})
+                self.assertEqual(status, 502)
+        self.assertNotIn('outcome="success"', self.scrape_metrics())
 
 
 if __name__ == "__main__":

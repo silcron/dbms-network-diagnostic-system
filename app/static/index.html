@@ -29,10 +29,10 @@
             <label><input type="radio" name="mode" value="demo"><span class="mode-indicator" aria-hidden="true"></span><span><strong>DEMO</strong><small>모의 상황 시연</small></span></label>
           </div>
         </fieldset>
-        <label class="field field-scenario">모의 상황 <select id="scenario"><option value="normal">정상 연결</option><option value="warning">응답 지연 경고</option><option value="down">DBMS 접속 실패</option></select></label>
+        <label class="field field-scenario">모의 상황 <select id="scenario"><option value="mixed">DB 3개 · 혼합 상태</option><option value="normal">정상 연결</option><option value="warning">응답 지연 경고</option><option value="down">DBMS 접속 실패</option></select></label>
       </div>
       <div class="action-row">
-        <p id="mode-help" class="mode-help">LIVE는 실제 MariaDB에 연결·로그인하고 SELECT 1을 실행합니다.</p>
+        <p id="mode-help" class="mode-help">진단 서버에 설정한 MariaDB를 최대 3개까지 동시에 확인합니다.</p>
         <button id="diagnose" type="button"><span class="button-label">진단 시작</span><span class="button-arrow" aria-hidden="true">↗</span></button>
       </div>
     </section>
@@ -40,25 +40,19 @@
     <div id="notice" class="notice is-ready" role="status" aria-live="polite"><span class="notice-icon" aria-hidden="true"></span><span class="notice-text">실제 MariaDB 상태를 확인할 준비가 되었습니다.</span></div>
 
     <section id="result" class="result hidden" aria-labelledby="result-title" aria-live="polite">
-      <div class="section-heading result-heading">
-        <h2 id="result-title">진단 결과</h2>
-        <div id="result-activity" class="result-activity" role="status">
-          <span class="result-spinner" aria-hidden="true"></span>
-          <span id="result-activity-label">진단 완료</span>
-        </div>
-      </div>
-      <div id="result-wait" class="result-wait hidden">
-        <strong>연결 경로 확인 중</strong>
-        <span>TCP 연결 → 세션 확인 → DBMS 진단</span>
-      </div>
-      <div id="result-body">
+      <div class="section-heading result-heading"><h2 id="result-title">진단 결과</h2></div>
       <div class="summary">
-        <div class="summary-status"><span>진단 상태</span><strong id="status">-</strong></div>
+        <div class="summary-status"><span id="status-label">진단 상태</span><strong id="status">-</strong></div>
         <div><span id="mode-label">실행 모드</span><strong id="mode">-</strong></div>
         <div><span>클라이언트 왕복 시간</span><strong id="rtt">-</strong></div>
         <div><span id="checked-label">확인 시각</span><strong id="checked">-</strong></div>
       </div>
-      <section class="detail panel" aria-labelledby="detail-title">
+      <section id="targets-panel" class="detail panel" aria-labelledby="targets-title" hidden>
+        <h3 id="targets-title">DB별 상태</h3>
+        <p id="feedback-summary" class="feedback-summary"></p>
+        <div id="targets" class="target-grid" role="group" aria-labelledby="targets-title"></div>
+      </section>
+      <section id="target-detail" class="detail panel" aria-labelledby="detail-title">
         <h3 id="detail-title">결과 해석</h3>
         <p id="database" class="database-name"></p>
         <p id="detail" class="verdict"></p>
@@ -74,7 +68,6 @@
         <ol id="osi"></ol>
         <p class="trace-note">로컬 루프백에서는 1·2계층에 실제 케이블·Wi‑Fi 전송이 없습니다. 5·6계층은 프로그램의 세션·데이터 표현 기능에 대응합니다.</p>
       </section>
-      </div>
     </section>
     <section class="panel route" id="route" aria-labelledby="route-title">
       <div class="section-heading">
@@ -97,6 +90,7 @@
       </div>
     </section>
   </main>
+  <script src="/target-choices.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

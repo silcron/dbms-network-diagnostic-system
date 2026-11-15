@@ -14,7 +14,7 @@ from typing import Final
 from .client_core import DiagnosticClient
 from .metrics import InvalidMetricValue, WebMetrics
 from .protocol import ProtocolError
-from .web_http import encode_json_object, parse_diagnostic_observation
+from .web_http import encode_json_object, parse_diagnostic_observation, with_presentation_feedback
 from .web_inputs import DiagnosticRequest, HttpInputError, JsonObject, parse_diagnostic_request
 
 STATIC_DIR: Final = Path(__file__).with_name("static")
@@ -64,8 +64,8 @@ class WebClientHandler(BaseHTTPRequestHandler):
         if self.path == "/style.css":
             self._send_file(STATIC_DIR / "style.css", "text/css; charset=utf-8")
             return
-        if self.path == "/app.js":
-            self._send_file(STATIC_DIR / "app.js", "application/javascript; charset=utf-8")
+        if self.path in ("/app.js", "/target-choices.js"):
+            self._send_file(STATIC_DIR / self.path[1:], "application/javascript; charset=utf-8")
             return
         if self.path == "/metrics":
             self._send_metrics()
@@ -91,7 +91,7 @@ class WebClientHandler(BaseHTTPRequestHandler):
             observation = parse_diagnostic_observation(response)
             if observation.mode != request.mode:
                 raise ProtocolError("Diagnostic result mode does not match the request.")
-            encoded_response = encode_json_object(response)
+            encoded_response = encode_json_object(with_presentation_feedback(response))
         except DiagnosticTransportFailure as exc:
             reason = _transport_reason(exc.cause)
             timeout = reason == "timeout"

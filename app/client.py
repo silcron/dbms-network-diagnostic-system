@@ -10,6 +10,7 @@ from tkinter import messagebox, scrolledtext, ttk
 from typing import Callable, Dict, List, Union
 
 from .client_core import DiagnosticClient
+from .feedback import batch_summary, target_feedback
 
 JsonValue = Union[str, int, float, bool, None, List["JsonValue"], Dict[str, "JsonValue"]]
 JsonObject = Dict[str, JsonValue]
@@ -76,6 +77,14 @@ def format_diagnostic_lines(response: JsonObject) -> list[str]:
         f"설명: {detail}",
         f"클라이언트 왕복 시간: {client_rtt_ms} ms",
     ]
+    targets = response.get("results")
+    if isinstance(targets, list) and len(targets) > 1:
+        batch = [target for target in targets if isinstance(target, dict) and type(target.get("target_id")) is int]
+        if len(batch) != len(targets):
+            raise PresentationError("results")
+        lines[1:1] = ["[DB별 상태]", batch_summary(batch), *(_target_line(db) for db in batch), "", "[최고 심각도 대상]"]
+    else:
+        lines.append(f"다음 점검: {target_feedback(result).next_check}")
     simulated = "모의 " if mode == "DEMO" else ""
     facts: list[str] = []
     for field, label in (("database_connect_ms", "DB 연결·인증"), ("query_ms", "SELECT 1")):
@@ -109,6 +118,12 @@ def format_diagnostic_lines(response: JsonObject) -> list[str]:
         trace_item: JsonObject = item
         lines.append(f"{_required_text(trace_item, 'layer')}: {_required_text(trace_item, 'application')}")
     return lines
+
+
+def _target_line(target: JsonObject) -> str:
+    feedback = target_feedback(target)
+    return (f"DB {target['target_id']} · {_required_text(target, 'status')} · {_required_text(target, 'database')}\n"
+            f"  {feedback.finding} | {feedback.next_check}")
 
 
 class App(tk.Tk):

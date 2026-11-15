@@ -10,10 +10,10 @@ from .metrics import RequestMode, ResultMode
 JsonValue = Union[str, int, float, bool, None, List["JsonValue"], Dict[str, "JsonValue"]]
 JsonObject = Dict[str, JsonValue]
 InputErrorCode = Literal["invalid_request", "invalid_mode", "invalid_scenario", "unsupported_type"]
-DemoScenario = Literal["normal", "warning", "down"]
+DemoScenario = Literal["normal", "warning", "down", "mixed"]
 
 _MODES: Final[Dict[str, ResultMode]] = {"live": "live", "demo": "demo"}
-_SCENARIOS: Final[Dict[str, DemoScenario]] = {"normal": "normal", "warning": "warning", "down": "down"}
+_SCENARIOS: Final[Dict[str, DemoScenario]] = {"normal": "normal", "warning": "warning", "down": "down", "mixed": "mixed"}
 
 
 class HttpInputError(ValueError):
@@ -91,7 +91,7 @@ def parse_diagnostic_request(data: bytes) -> DiagnosticRequest:
     if scenario is None:
         raise HttpInputError(
             "invalid_scenario",
-            "demo_scenario must be normal, warning, or down",
+            "demo_scenario must be normal, warning, down, or mixed",
             metric_mode,
         )
 

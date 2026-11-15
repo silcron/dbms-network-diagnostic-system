@@ -1,3 +1,5 @@
+> 이전 설계·실험 기록입니다. 현재 DB 3개 확장본은 [README](README.md), 최신 증빙은 [최종 실행 자료](evidence/final-20261114/)를 참고하세요.
+
 # TCP 통신 및 3-way handshake 검증
 
 캡처 파일: [demo_tcp_9090_20261005.pcapng](demo_tcp_9090_20261005.pcapng)  

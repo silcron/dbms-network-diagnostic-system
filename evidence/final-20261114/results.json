@@ -1,0 +1,81 @@
+{
+  "live": {
+    "checked_at": "2026-11-14T23:19:16+09:00",
+    "server_processing_ms": 2065.75,
+    "client_rtt_ms": 2066.14,
+    "representative": 3,
+    "results": [
+      {
+        "target_id": 1,
+        "database": "MariaDB (127.0.0.1:62014)",
+        "mode": "LIVE",
+        "status": "NORMAL",
+        "db_errno": null,
+        "error_kind": "none",
+        "failed_phase": null,
+        "total_ms": 50.39,
+        "query_ms": 0.14,
+        "finding": "로그인·쿼리 성공",
+        "next_check": "추가 조치는 없습니다."
+      },
+      {
+        "target_id": 2,
+        "database": "MariaDB (127.0.0.1:62019)",
+        "mode": "LIVE",
+        "status": "WARNING",
+        "db_errno": 1045,
+        "error_kind": "auth",
+        "failed_phase": "connect",
+        "total_ms": 49.99,
+        "query_ms": null,
+        "finding": "로그인 거부",
+        "next_check": "진단 서버의 DB2_USER·DB2_PASSWORD와 해당 계정의 접속 허용 호스트를 확인하세요."
+      },
+      {
+        "target_id": 3,
+        "database": "MariaDB (127.0.0.1:62028)",
+        "mode": "LIVE",
+        "status": "DOWN",
+        "db_errno": 2003,
+        "error_kind": "network",
+        "failed_phase": "connect",
+        "total_ms": 2057.53,
+        "query_ms": null,
+        "finding": "DB 연결 실패",
+        "next_check": "진단 서버에 설정한 DB 주소·포트와 해당 MariaDB 서비스의 실행 상태를 확인하세요."
+      }
+    ]
+  },
+  "demo": {
+    "checked_at": "2026-11-14T23:19:17+09:00",
+    "server_processing_ms": 0.03,
+    "client_rtt_ms": 0.22,
+    "representative": 3,
+    "results": [
+      {
+        "target_id": 1,
+        "database": "MariaDB (모의 시연)",
+        "mode": "DEMO",
+        "status": "NORMAL",
+        "finding": "모의 · 로그인·쿼리 성공",
+        "next_check": "점검 예시: 추가 조치는 없습니다. 실제 상태는 LIVE로 확인하세요."
+      },
+      {
+        "target_id": 2,
+        "database": "MariaDB (모의 시연)",
+        "mode": "DEMO",
+        "status": "WARNING",
+        "finding": "모의 · 쿼리 성공 · 응답 지연",
+        "next_check": "점검 예시: 다시 진단해 지연이 반복되는지 확인하세요. 반복되면 DB 연결·인증 시간과 SELECT 1 시간을 비교하세요. 실제 상태는 LIVE로 확인하세요."
+      },
+      {
+        "target_id": 3,
+        "database": "MariaDB (모의 시연)",
+        "mode": "DEMO",
+        "status": "DOWN",
+        "finding": "모의 · DB 연결 실패",
+        "next_check": "점검 예시: 진단 서버에 설정한 DB 주소·포트와 해당 MariaDB 서비스의 실행 상태를 확인하세요. 실제 상태는 LIVE로 확인하세요."
+      }
+    ]
+  }
+}

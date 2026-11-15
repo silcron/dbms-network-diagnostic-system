@@ -205,6 +205,7 @@ class LiveDiagnosticTests(unittest.TestCase):
         wrapped_timeout.__cause__ = TimeoutError("timed out")
         cases = (
             (FakeDatabaseError(1045, "raw secret auth timeout text"), "auth", "WARNING", 1045),
+            (FakeDatabaseError(2059, "raw secret plugin text"), "auth", "WARNING", 2059),
             (FakeDatabaseError(1049, "raw secret database timeout text"), "database", "WARNING", 1049),
             (FakeDatabaseError(2002, "raw secret network text"), "network", "DOWN", 2002),
             (FakeDatabaseError(2003, "Can't connect to MySQL server on 'timeout-db.local' (111)"), "network", "DOWN", 2003),

@@ -60,11 +60,11 @@ _ERROR_STATUS: Final[Dict[ErrorKind, Status]] = {
     "internal": "WARNING",
 }
 _ERROR_DETAIL: Final[Dict[Tuple[str, ErrorKind], str]] = {
-    ("connect", "network"): "DBMS 네트워크 연결에 실패했습니다. 주소·포트·서비스 상태를 확인하세요.",
+    ("connect", "network"): "진단 서버에서 DB에 연결하지 못했습니다.",
     ("query", "network"): "SELECT 1 실행 중 DBMS 연결이 끊어졌습니다. 네트워크와 서비스 상태를 확인하세요.",
     ("connect", "timeout"): "DBMS 연결 시간이 제한을 넘었습니다. 네트워크와 DBMS 상태를 확인하세요.",
     ("query", "timeout"): "SELECT 1 응답 시간이 읽기 제한을 넘었습니다. DBMS 상태를 확인하세요.",
-    ("connect", "auth"): "DBMS 인증에 실패했습니다. 사용자 이름과 권한 설정을 확인하세요.",
+    ("connect", "auth"): "TCP 연결 후 DBMS 인증을 완료하지 못했습니다.",
     ("query", "auth"): "SELECT 1 실행 중 DBMS 인증 오류가 발생했습니다. 권한 설정을 확인하세요.",
     ("connect", "database"): "요청한 데이터베이스를 사용할 수 없습니다. DB_NAME과 권한 설정을 확인하세요.",
     ("query", "database"): "SELECT 1 실행 중 데이터베이스 오류가 발생했습니다. DBMS 상태를 확인하세요.",
@@ -82,14 +82,14 @@ _CONFIG_DETAIL: Final[Dict[str, str]] = {
 }
 
 
-def _load_config() -> DbConfig:
-    raw_host = os.getenv("DB_HOST")
+def _load_config(prefix: str) -> DbConfig:
+    raw_host = os.getenv(prefix + "HOST")
     if raw_host is None or not raw_host.strip():
         raise _DbConfigError("DB_HOST", "MariaDB (미설정)")
     host = raw_host.strip()
     database = f"MariaDB ({host})"
     try:
-        port = int(os.getenv("DB_PORT", "3306"))
+        port = int(os.getenv(prefix + "PORT", "3306"))
     except ValueError as error:
         raise _DbConfigError("DB_PORT", database) from error
     if not 1 <= port <= 65535:
@@ -115,9 +115,9 @@ def _load_config() -> DbConfig:
     return DbConfig(
         host=host,
         port=port,
-        user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASSWORD", ""),
-        database_name=os.getenv("DB_NAME") or None,
+        user=os.getenv(prefix + "USER", "root"),
+        password=os.getenv(prefix + "PASSWORD", ""),
+        database_name=os.getenv(prefix + "NAME") or None,
         connect_timeout=timeout_values["DB_CONNECT_TIMEOUT_SECONDS"],
         read_timeout=timeout_values["DB_READ_TIMEOUT_SECONDS"],
         write_timeout=timeout_values["DB_WRITE_TIMEOUT_SECONDS"],
@@ -158,7 +158,7 @@ def _is_timeout(error: BaseException, inspect_message: bool) -> bool:
 
 def _classify(error: BaseException, phase: Literal["connect", "query"]) -> Tuple[ErrorKind, Optional[int]]:
     errno = _db_errno(error)
-    if errno == 1045:
+    if errno in (1045, 2059):  # Access denied, or the client could not load the authentication plugin.
         return "auth", errno
     if errno == 1049:
         return "database", errno
@@ -192,16 +192,19 @@ def _build_result(database: str, outcome: ProbeOutcome, total_ms: float) -> Live
     return result
 
 
-def probe_live_database() -> LiveDiagnosticResult:
+def probe_live_database(prefix: str = "DB_") -> LiveDiagnosticResult:
     started = time.perf_counter()
     try:
-        config = _load_config()
+        config = _load_config(prefix)
     except _DbConfigError as error:
         total_ms = _elapsed_ms(started)
-        outcome = ProbeOutcome("WARNING", _CONFIG_DETAIL[error.setting], "config", "config", None, None, None)
+        detail = _CONFIG_DETAIL[error.setting]
+        if error.setting in {"DB_HOST", "DB_PORT"}:
+            detail = detail.replace("DB_", prefix)
+        outcome = ProbeOutcome("WARNING", detail, "config", "config", None, None, None)
         return _build_result(error.database, outcome, total_ms)
 
-    database = f"MariaDB ({config.host})"
+    database = f"MariaDB ({config.host}:{config.port})"
     try:
         import pymysql
     except ImportError:
