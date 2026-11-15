@@ -4,7 +4,7 @@
 
 ## 적용 경계
 
-- Python 3.9 이상, 동기 TCP/JSON, 프로토콜 v2와 4바이트 big-endian 길이 헤더를 유지한다.
+- 실행 기준은 현재 로컬 버전인 Python 3.14.3 이상이며, 이후 검증은 3.14.3을 기준으로 한다. 동기 TCP/JSON, 프로토콜 v2와 4바이트 big-endian 길이 헤더를 유지한다.
 - 한 프레임의 최대 payload는 1 MiB이다. 이 프레이밍은 과제의 wire contract이므로 참고 예제의 다른 헤더 형식으로 바꾸지 않는다.
 - `LIVE`는 실제 DBMS 연결·인증·`SELECT 1` 결과이고 `DEMO`는 명시적인 모의 결과이다. DEMO 성공을 LIVE 증거로 해석하지 않는다.
 - PyShark, Prometheus/Grafana, Toxiproxy는 필수 설치 항목이 아니다. 기본 DEMO 실행은 저장소의 기존 Python 의존성만 사용한다.

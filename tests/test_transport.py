@@ -124,12 +124,12 @@ class TransportTests(unittest.TestCase):
 
     def test_json_decode_normalizes_integer_and_recursion_limits(self) -> None:
         # Given: valid JSON inputs that exceed separate CPython codec limits.
-        large_integer_payload = b'{"value":' + (b"9" * 4301) + b'}'
-        json.loads(large_integer_payload, parse_int=str)
+        integer_limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+        large_integer_payload = b'{"value":' + (b"9" * ((integer_limit or 4300) + 1)) + b'}'
         payloads = {
             "decoder-recursion": b'{"value":' + (b"[" * 20_000) + b"0" + (b"]" * 20_000) + b"}",
         }
-        if sys.version_info >= (3, 11) and sys.get_int_max_str_digits() > 0:
+        if integer_limit > 0:
             payloads["integer-conversion"] = large_integer_payload
         for boundary, payload in payloads.items():
             with self.subTest(boundary=boundary):

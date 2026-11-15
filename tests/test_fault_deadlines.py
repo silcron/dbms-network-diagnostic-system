@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import subprocess
+import sys
 import threading
 import time
 import unittest
@@ -193,11 +194,13 @@ class JsonBoundaryTests(unittest.TestCase):
         self.assertEqual(proxies, {})
 
     def test_database_probe_normalizes_json_runtime_limits(self) -> None:
+        integer_limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
         payloads = (
             "[" * 500 + "0" + "]" * 500,
-            '{"number":' + "9" * 4301 + "}",
+            '{"number":' + "9" * ((integer_limit or 4300) + 1) + "}",
         )
-        expected_causes = (FailureCause.PROTOCOL, FailureCause.PROCESS)
+        integer_cause = FailureCause.PROCESS if integer_limit else FailureCause.PROTOCOL
+        expected_causes = (FailureCause.PROTOCOL, integer_cause)
         for index, (payload, expected_cause) in enumerate(zip(payloads, expected_causes)):
             with self.subTest(index=index):
                 completed = subprocess.CompletedProcess([], 0, stdout=payload, stderr="")

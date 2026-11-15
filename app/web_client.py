@@ -37,7 +37,7 @@ def _transport_reason(error: OSError | ProtocolError) -> str:
         return "name_resolution"
     if isinstance(error, ConnectionRefusedError):
         return "connection_refused"
-    if isinstance(error, TimeoutError):
+    if isinstance(error, (socket.timeout, TimeoutError)):
         return "timeout"
     if isinstance(error, ConnectionResetError):
         return "connection_reset"
@@ -105,7 +105,7 @@ class WebClientHandler(BaseHTTPRequestHandler):
                 system_errno=exc.cause.errno if isinstance(exc.cause, OSError) else None,
             )
             return
-        except TimeoutError:
+        except (socket.timeout, TimeoutError):
             metrics.observe_request(request.mode, "upstream_timeout")
             self._send_failure(
                 HTTPStatus.GATEWAY_TIMEOUT,
@@ -169,7 +169,7 @@ class WebClientHandler(BaseHTTPRequestHandler):
                     raise HttpInputError("invalid_request", "request body was truncated")
                 chunks.append(chunk)
                 remaining -= len(chunk)
-        except TimeoutError as exc:
+        except (socket.timeout, TimeoutError) as exc:
             raise HttpInputError("invalid_request", "request body deadline exceeded") from exc
         finally:
             self.connection.settimeout(original_timeout)
