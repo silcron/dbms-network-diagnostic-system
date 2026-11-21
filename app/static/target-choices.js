@@ -2,7 +2,10 @@ function renderTargetChoices(targets, primary, summary) {
   const container = document.querySelector('#targets');
   container.replaceChildren();
   document.querySelector('#targets-panel').hidden = targets.length < 2;
-  setText('#feedback-summary', summary || '');
+  setText('#feedback-summary', targets.length > 1
+    ? `전체 상태 ${primary.status}${summary ? ` · ${summary}` : ''}`
+    : (summary || ''));
+  result.dataset.overallStatus = primary.status.toLowerCase();
   renderTargetDetail(primary);
   if (targets.length < 2) return;
 

@@ -6,6 +6,7 @@
 
 - LIVE: 실제 MariaDB 연결·로그인·`SELECT 1` 실행 및 시간 측정
 - DB 1·2·3의 상태 카드와 상세 원인·다음 점검 항목 표시
+- DB 카드 선택 시 상단 상태·색상·상세 설명 전환, 전체 상태는 별도 유지
 - 대표 상태는 `DOWN > WARNING > NORMAL` 우선순위로 선택
 - DEMO: 정상·지연 경고·접속 실패 및 **DB 3개 혼합 상태** 시연
 - 세션 ID 확인, UTF-8 JSON, 4바이트 길이 헤더, 입력 검증·시간 제한
@@ -28,7 +29,23 @@ DEMO도 실제 TCP로 통신하지만 DB 결과는 모의 데이터입니다. DE
 
 ## 빠른 실행: DB 설치 없는 DEMO
 
-권장 환경은 **Python 3.14.3 이상**입니다. 저장소를 내려받고 `README.md`가 있는 폴더에서 터미널 두 개를 엽니다. DEMO는 Python 표준 라이브러리만으로 실행할 수 있습니다.
+**Python 3.14.3 이상**이 필요합니다. Windows에서는 저장소를 내려받아 전체 압축 해제한 뒤 루트의 **`01_프로그램_실행.cmd`를 더블클릭**하세요. TCP 진단 서버와 웹 클라이언트를 함께 시작하고 브라우저를 엽니다. DEMO는 표준 라이브러리만 사용하므로 MariaDB·PyMySQL 설치가 필요하지 않습니다.
+
+Python이 없다면 [공식 Windows 다운로드](https://www.python.org/downloads/windows/)에서 먼저 설치합니다. 실행 도구는 Python 소스를 시작하는 CMD/BAT이며 Python이 포함된 단독 EXE는 아닙니다. Python 준비 후 DEMO 실행에는 인터넷이 필요하지 않습니다.
+
+`02_결과비교/`에는 **정상·지연 경고·접속 실패 BAT 3개**가 있습니다. 선택한 모의 결과를 자동 진단하며 실제 DB 상태·비밀번호는 변경하지 않습니다. 실행 창을 유지하고 종료 시 Enter 또는 Ctrl+C를 누릅니다. 기본 포트가 사용 중이면 빈 포트를 선택하며 기존 프로세스를 종료하지 않습니다. 이 실행 도구는 DEMO 전용이고 LIVE는 아래 별도 설정 절차를 사용합니다.
+
+명령줄에서도 실행할 수 있습니다.
+
+```powershell
+python -B start_demo.py
+python -B start_demo.py --scenario warning --auto-run
+python -B start_demo.py --self-test
+```
+
+보고서·발표자료·실행 도구·검증자료를 함께 받으려면 [최신 전체 패키지](submission/20244277_전민혁_20224267_김민수_프로그램제출.zip)를 다운로드하고 전체 압축 해제하세요. 패키지의 `00_먼저읽어주세요.txt`에 실행 순서가 정리돼 있습니다. ZIP에 포함된 소스는 2026-11-21 제출본 기준이며 이후 변경은 저장소에서 확인합니다.
+
+서버와 웹 클라이언트를 따로 실행하려면 터미널 두 개를 사용합니다.
 
 첫 번째 터미널 — 진단 서버:
 
@@ -45,7 +62,7 @@ python -B -m app.web_client --host 127.0.0.1 --port 62039
 1. 브라우저에서 <http://127.0.0.1:62039/> 접속
 2. 진단 서버 주소 `127.0.0.1`, 포트 `62036` 입력
 3. **DEMO → DB 3개 · 혼합 상태 → 진단 시작** 선택
-4. NORMAL·WARNING·DOWN을 비교하고 각 DB 카드를 눌러 상세 내용 확인
+4. NORMAL·WARNING·DOWN을 비교하고 각 DB 카드를 눌러 상단 상태·상세 내용 확인. 전체 상태와 왕복 시간은 같은 진단 요청의 값으로 유지
 
 명시적으로 지정하지 않은 CLI 기본 포트는 진단 서버 `9090`, 웹 `8080`입니다. 위 `62036`·`62039`는 최종 캡처와 맞춘 실행 예시이며, 다른 포트를 쓰면 웹 입력과 캡처 필터도 함께 맞춰야 합니다.
 
@@ -136,6 +153,12 @@ TShark가 PATH에 없으면 `--tshark 'C:\Program Files\Wireshark\tshark.exe'`�
 
 ```powershell
 python -B -m unittest discover -s tests -v
+```
+
+Node.js가 있는 개발 환경에서는 화면 선택 처리도 확인할 수 있습니다. Node.js는 프로그램 실행에 필요하지 않습니다.
+
+```powershell
+node --test tests/test_target_selection.cjs
 ```
 
 - [최신 검증 기록](docs/FINAL_VALIDATION.md)

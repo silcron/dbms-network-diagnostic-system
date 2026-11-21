@@ -159,6 +159,10 @@ function nextDatabaseCheck(db) {
   return checks[db.error_kind] || '필요하면 Wireshark에서 진단 서버의 TCP 연결을 확인하세요.';
 }
 function renderTargetDetail(db) {
+  setText('#status-label', db.target_id ? `DB ${db.target_id} · 선택한 DB 상태` : '진단 상태');
+  setText('#status', db.status);
+  result.dataset.status = db.status.toLowerCase();
+  route.classList.toggle('is-db-error', db.status === 'DOWN');
   setText('#detail-title', db.target_id ? `DB ${db.target_id} · 결과 해석` : '결과 해석');
   setText('#database', db.database);
   setText('#detail', db.detail);
@@ -184,18 +188,14 @@ function renderTargetDetail(db) {
 function renderDatabaseResult(data) {
   const db = data.result;
   const targets = data.results || [db];
-  setText('#status-label', targets.length > 1 ? '전체 상태 · 가장 높은 심각도' : '진단 상태');
-  setText('#status', db.status);
   setText('#mode', db.mode);
   setText('#mode-label', '실행 모드');
   setText('#rtt', `${data.client_rtt_ms} ms`);
   setText('#checked', formatCheckedAt(data.checked_at));
   setText('#checked-label', '확인 시각');
   renderTargetChoices(targets, db, data.feedback_summary);
-  result.dataset.status = db.status.toLowerCase();
   result.classList.remove('hidden');
   route.classList.add('is-complete');
-  route.classList.toggle('is-db-error', db.status === 'DOWN');
   renderTrace(data.osi_trace);
   setText('#capture-note', 'Wireshark의 루프백 인터페이스에서 이 포트의 SYN → SYN/ACK → ACK를 확인하세요. 화면 결과만으로 패킷 검증을 완료했다고 판단하지 않습니다.');
   setNotice(db.mode === 'DEMO'
