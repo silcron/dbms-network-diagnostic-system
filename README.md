@@ -162,7 +162,6 @@ node --test tests/test_target_selection.cjs
 ```
 
 - [최신 검증 기록](docs/FINAL_VALIDATION.md)
-- [팀 브리핑과 남은 작업](TEAM_BRIEFING.md)
 - [노트북 클라이언트·LAN 실험 준비](docs/LAPTOP_LAN_TEST.md)
 - [프로그램·네트워크 용어 안내](app/static/guide.html)
 - `start-laptop-client.cmd`: 노트북 웹 클라이언트 실행
