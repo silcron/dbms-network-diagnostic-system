@@ -43,7 +43,7 @@ python -B start_demo.py --scenario warning --auto-run
 python -B start_demo.py --self-test
 ```
 
-보고서·발표자료·실행 도구·검증자료를 함께 받으려면 [최신 전체 패키지](submission/20244277_전민혁_20224267_김민수_프로그램제출.zip)를 다운로드하고 전체 압축 해제하세요. 패키지의 `00_먼저읽어주세요.txt`에 실행 순서가 정리돼 있습니다. ZIP에 포함된 소스는 2026-11-21 제출본 기준이며 이후 변경은 저장소에서 확인합니다.
+최신 프로그램은 저장소 상단 **Code → Download ZIP**으로 내려받아 전체 압축 해제하거나 `git clone`으로 받습니다. 이 저장소는 소스코드·실행 도구·검증자료를 관리하며 발표 PPT와 보고서는 별도로 보관합니다.
 
 서버와 웹 클라이언트를 따로 실행하려면 터미널 두 개를 사용합니다.
 
@@ -166,10 +166,18 @@ node --test tests/test_target_selection.cjs
 - [노트북 클라이언트·LAN 실험 준비](docs/LAPTOP_LAN_TEST.md)
 - [프로그램·네트워크 용어 안내](app/static/guide.html)
 - `start-laptop-client.cmd`: 노트북 웹 클라이언트 실행
-- `scripts/build_laptop_client.ps1`: 클라이언트 전용 ZIP 생성. 서버 포함 최종 제출본과 구분
+- `scripts/build_laptop_client.ps1`: 노트북용 클라이언트 전용 ZIP 생성. 진단 서버는 별도로 실행
 
 ## 파일 구성과 공개 범위
 
-`app/`은 서버·클라이언트·DB 진단·웹 화면, `scripts/`는 설치·실행·검증 도구, `tests/`는 자동 테스트, `evidence/`는 공유 가능한 검증 자료입니다.
+| 위치 | 내용 |
+|---|---|
+| `01_프로그램_실행.cmd`, `start_demo.py` | 서버·웹 클라이언트를 함께 시작하는 DEMO 실행 도구 |
+| `02_결과비교/` | 정상·지연 경고·접속 실패 비교용 BAT와 안내 |
+| `app/` | 진단 서버·웹/TCP 클라이언트·DB 진단·화면 |
+| `scripts/` | 설치·실행·패킷 검증 도구 |
+| `tests/` | Python 자동 테스트와 화면 선택 회귀 검사 |
+| `docs/` | 실행·네트워크 설명 및 검증 기록 |
+| `evidence/` | 공유 가능한 패킷·결과·화면 증빙 |
 
 DB 암호, `.env`, `secrets/`, MariaDB 데이터, 개인 로그, 가상환경은 올리지 않습니다. 설치 비밀번호는 실행 시 생성해 저장소 밖에 보관합니다. 진단 TCP 구간에는 별도 TLS·사용자 인증을 구현하지 않았으므로 외부에 그대로 노출하지 않고 허용된 로컬/LAN 환경에서 사용합니다. 개인 설정 파일은 저장소 밖에서 관리합니다.

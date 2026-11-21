@@ -21,3 +21,10 @@ venv/
 *.key
 *.p12
 *.pfx
+
+# Presentation and report artifacts are maintained separately from program source
+/submission/
+*.ppt
+*.pptx
+*.hwp
+*.hwpx
